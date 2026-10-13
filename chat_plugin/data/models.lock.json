@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "model": "OPUS-MT English to Russian, INT8",
+  "origin": "Helsinki-NLP/opus-mt-en-ru",
+  "conversion": "jiangzhuo9357/opus-mt-en-ru-ct2",
+  "revision": "66f1027eb3d27d8f85c9f0496d7e0b7829c07504",
+  "files": [
+    {
+      "filename": "config.json",
+      "size": 223,
+      "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af",
+      "url": "https://huggingface.co/jiangzhuo9357/opus-mt-en-ru-ct2/resolve/66f1027eb3d27d8f85c9f0496d7e0b7829c07504/config.json"
+    },
+    {
+      "filename": "lid.176.ftz",
+      "size": 938013,
+      "sha256": "8f3472cfe8738a7b6099e8e999c3cbfae0dcd15696aac7d7738a8039db603e83",
+      "url": "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"
+    },
+    {
+      "filename": "model.bin",
+      "size": 78276475,
+      "sha256": "f5ae1da30bcb61e877c549be8fb5a434193893eb97509ccd0b954465f9a8f80c",
+      "url": "https://huggingface.co/jiangzhuo9357/opus-mt-en-ru-ct2/resolve/66f1027eb3d27d8f85c9f0496d7e0b7829c07504/model.bin"
+    },
+    {
+      "filename": "shared_vocabulary.json",
+      "size": 2300269,
+      "sha256": "bf1812383ed402163a2ed1b553e175e7db96a54ed68b6c15566018fdf945ed99",
+      "url": "https://huggingface.co/jiangzhuo9357/opus-mt-en-ru-ct2/resolve/66f1027eb3d27d8f85c9f0496d7e0b7829c07504/shared_vocabulary.json"
+    },
+    {
+      "filename": "source.spm",
+      "size": 802781,
+      "sha256": "16bebef1389a0b8ab452772c4e35b9e605e5713f8ac7baa71ca701394eaa086d",
+      "url": "https://huggingface.co/jiangzhuo9357/opus-mt-en-ru-ct2/resolve/66f1027eb3d27d8f85c9f0496d7e0b7829c07504/source.spm"
+    },
+    {
+      "filename": "target.spm",
+      "size": 1080169,
+      "sha256": "745998e51ba5b058e38b7ac7765c25c43ed5c1c39cc92b27163b9b2e323c9d7c",
+      "url": "https://huggingface.co/jiangzhuo9357/opus-mt-en-ru-ct2/resolve/66f1027eb3d27d8f85c9f0496d7e0b7829c07504/target.spm"
+    }
+  ]
+}

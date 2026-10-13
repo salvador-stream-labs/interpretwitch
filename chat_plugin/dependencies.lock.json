@@ -1,0 +1,40 @@
+{
+  "qt": {
+    "url": "https://github.com/obsproject/obs-deps/releases/download/2026-08-26/macos-deps-qt6-2026-08-26-arm64.tar.xz",
+    "sha256": "900ac2df4a20c19f58de20f671d63a38591ec99d2c737e1b6f1d529383a37868",
+    "size": 16855520
+  },
+  "qtwebsockets": {
+    "url": "https://codeload.github.com/qt/qtwebsockets/tar.gz/refs/tags/v6.11.1",
+    "sha256": "ba2747e9aa839e01b8d85930a0125c3f6ce08675c02587ef425a7381c1ca69e5",
+    "size": 618594
+  },
+  "ctranslate2": {
+    "url": "https://codeload.github.com/OpenNMT/CTranslate2/tar.gz/refs/tags/v4.8.2",
+    "sha256": "a15fdd27842ac80e73c4a0e2ae8ee32c990db88563b6b012db009128872ab730",
+    "size": 3433424
+  },
+  "sentencepiece": {
+    "url": "https://codeload.github.com/google/sentencepiece/tar.gz/refs/tags/v0.2.0",
+    "sha256": "9970f0a0afee1648890293321665e5b2efa04eaec9f1671fcf8048f456f5bb86",
+    "size": 11980811
+  },
+  "fasttext": {
+    "url": "https://codeload.github.com/facebookresearch/fastText/tar.gz/refs/tags/v0.9.2",
+    "sha256": "7ea4edcdb64bfc6faaaec193ef181bdc108ee62bb6a04e48b2e80b639a99e27e",
+    "size": 4036722
+  },
+  "ctranslate2_macos_wheel": {
+    "name": "ctranslate2",
+    "version": "4.8.2",
+    "filename": "ctranslate2-4.8.2-cp314-cp314-macosx_11_0_arm64.whl",
+    "url": "https://files.pythonhosted.org/packages/72/b4/28111e86927b2490388d8e0b79ec83db38f2a81bf452318f24563b42e205/ctranslate2-4.8.2-cp314-cp314-macosx_11_0_arm64.whl",
+    "sha256": "e32ae5e625a8999749745de43c2de5c12ceebb6d0d9cc9a3a956e8912bd68edb",
+    "size": 1272406
+  },
+  "simde": {
+    "url": "https://codeload.github.com/simd-everywhere/simde/tar.gz/c3d7abfaba6729a8b11d09a314b34a4db628911d",
+    "sha256": "229a7aad49cd6affb8f600ee6419023a67ff990f13ad3dffea48aa2e5f216133",
+    "size": 3726703
+  }
+}

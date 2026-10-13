@@ -1,0 +1,9 @@
+_obs_module_set_pointer
+_obs_module_ver
+_obs_module_load
+_obs_module_post_load
+_obs_module_unload
+_obs_module_name
+_obs_module_description
+_obs_module_author
+_obs_module_set_locale
