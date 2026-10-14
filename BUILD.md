@@ -100,7 +100,9 @@ To test the complete bridge with an already cached Light model and real helper:
 
 ## Windows
 
-The 0.8.1 browser adapter and target-language update has not yet been validated on Windows.
+The 0.8.1 Windows build passes the automated suites and a short live OBS session,
+but is not yet release-ready. See [Windows release preparation](chat_plugin/RELEASE_WINDOWS.md)
+for what was verified and what remains.
 
 The Windows recipe targets x64, Windows 10/11, OBS 32.2.2 installed in
 `C:\Program Files\obs-studio` (or set `AWL_OBS_DIR`) and Qt 6.11.1.

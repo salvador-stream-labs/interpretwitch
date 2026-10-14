@@ -35,7 +35,8 @@ failure restores original messages and stops waiting indicators.
 Version **0.8.1**, development build for **Apple Silicon, macOS 14+, OBS 32.2.2**.
 The preceding browser bridge worked in the owner’s signed-in Mac OBS session.
 This revision’s layout, defaults and settings are checked by automated tests;
-Windows execution and NVIDIA hardware still need validation for this revision.
+Windows execution and NVIDIA hardware still need validation for this revision; see
+[Windows release preparation](chat_plugin/RELEASE_WINDOWS.md).
 Mac development packages use an ad-hoc signature and are not notarized.
 
 Twitch page changes can require adapter updates. Native OBS/Qt code still executes
@@ -46,6 +47,7 @@ See the [bridge limits](chat_plugin/INLINE_CHAT.md) and
 ## Review and build
 
 - [Build, test and package](BUILD.md).
+- [Windows release preparation](chat_plugin/RELEASE_WINDOWS.md).
 - [Settings and troubleshooting](chat_plugin/README.md).
 - [Source map and data flow](chat_plugin/ARCHITECTURE.md).
 - [Dependency and model provenance](chat_plugin/THIRD_PARTY_NOTICES.md).
