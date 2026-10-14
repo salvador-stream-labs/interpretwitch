@@ -82,7 +82,8 @@ bool constrain_process() {
     _setmode(_fileno(stdout), _O_BINARY);
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
     // The job is private to this helper, never the OBS process. Limit committed
-    // host memory to 2 GiB and disallow child processes. This does not cap VRAM.
+    // host memory to 4 GiB and disallow child processes. This does not cap VRAM.
+    // Loading Heavy on CPU peaks near 2 GiB, so a 2 GiB ceiling rejects it.
     HANDLE job = CreateJobObjectW(nullptr, nullptr);
     if (!job)
         return false;
@@ -91,7 +92,7 @@ bool constrain_process() {
         JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_ACTIVE_PROCESS |
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION;
     limit.BasicLimitInformation.ActiveProcessLimit = 1;
-    limit.ProcessMemoryLimit = SIZE_T(2) * 1024 * 1024 * 1024;
+    limit.ProcessMemoryLimit = SIZE_T(4) * 1024 * 1024 * 1024;
     if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limit, sizeof(limit)) ||
         !AssignProcessToJobObject(job, GetCurrentProcess())) {
         CloseHandle(job);

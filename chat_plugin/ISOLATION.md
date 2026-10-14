@@ -76,11 +76,13 @@ inherits a small list of OS/runtime environment variables, not the entire OBS
 environment. Unix launches close unrelated file descriptors and disable core dumps.
 
 The Windows implementation uses a private job object limited to one process and
-2 GiB of committed host memory. It does not put OBS in that job or limit OBS's
+4 GiB of committed host memory. It does not put OBS in that job or limit OBS's
 resources. This is a defensive ceiling, not expected memory use, and does not cap
-GPU VRAM. Failure to establish the job stops helper startup. This revision has not yet
-been tested on Windows. Mac does not currently impose a comparable hard
-memory ceiling; the model, queue and message bounds remain in place.
+GPU VRAM. Loading Heavy on CPU peaks near 2 GiB, which a 2 GiB ceiling rejected.
+Failure to establish the job stops helper startup. See
+[Windows release preparation](RELEASE_WINDOWS.md) for Windows validation status.
+Mac does not currently impose a comparable hard memory ceiling; the model, queue
+and message bounds remain in place.
 
 This is **fault isolation, not a full security sandbox**. The helper runs as the
 same OS user, can access that user's files and can use the network for downloads.
