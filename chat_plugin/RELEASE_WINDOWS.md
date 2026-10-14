@@ -47,6 +47,18 @@ and merged together:
 - **GPU library discovery.** The supervisor adds `CUDA_PATH_V12_*\bin` to the
   helper's `PATH`, so a cuBLAS-only CUDA 12 install works without editing the
   system `PATH`.
+- **Optional GPU support download.** NVIDIA drivers do not include cuBLAS, so most
+  users cannot use GPU mode as shipped. When GPU is selected and cuBLAS is missing,
+  settings offer **Download GPU support**: NVIDIA's official cuBLAS 12.9.1.4 archive
+  (549,755,186 bytes) from `developer.download.nvidia.com`, pinned by size and SHA-256
+  in `data/gpu-windows.lock.json`. The helper verifies it, extracts only the two
+  DLLs and NVIDIA's licence (each pinned) into
+  `%LOCALAPPDATA%\awl-chat\gpu\<version>`, and uses that folder through its own
+  `PATH`. No administrator rights, CUDA Toolkit or system change is needed. Before
+  GPU is reported ready, the helper checks the driver, CUDA version, device and
+  cuBLAS, then runs the existing GPU warm-up translation. Missing libraries, an old
+  driver (with a **Get NVIDIA driver** link), no driver or GPU, insufficient GPU
+  memory and unknown failures each get their own explanation; CPU stays the default.
 
 ## Verification performed
 
@@ -56,7 +68,10 @@ Test machine: Windows 10 Pro 22H2 (build 19045), x64, NVIDIA GeForce GTX 1650
 | Check | Result |
 | --- | --- |
 | Clean build via `chat_plugin\scripts\build-windows.ps1` | Pass |
-| CTest, 7 suites (locale catalogue, localisation, core, UI, model store, process isolation, inline bridge) | 7/7 pass |
+| CTest, 9 suites (locale catalogue, localisation, core, UI, model store, process isolation, inline bridge, GPU pack fixture, GPU pack) | 9/9 pass |
+| GPU pack tests: verified install, approved-only extraction (including a ZIP64 local header), reuse, damaged pack, tampered archive/files, hostile catalogues (host, scheme, path names), cancellation, error classification | Pass |
+| Settings flow with a test helper: GPU selected without cuBLAS shows **Download GPU support** and the licence notice; clicking it requests the pack and ends on GPU | Pass |
+| Real flow, packaged helper, environment without CUDA Toolkit: reports missing cuBLAS and translates on CPU; downloads 550 MB from NVIDIA, verifies, extracts and translates on GPU (29 s total here); later starts reuse the pack without downloading | Pass |
 | Package checks: no model weights, no symlinks, OBS module does not import CTranslate2/WinHTTP, every Qt/OBS import is shipped or provided by OBS | Pass |
 | Module load in installed libobs with only OBS's Qt DLLs, `en-US` and `ru-RU` | Pass |
 | `awl-chat-smoke`, Light (en→ru) and Heavy (M2M100), CPU | Pass |
@@ -77,7 +92,9 @@ Observed memory, private bytes of the helper while loading on CPU: Light about
 - Light packs other than Russian (de, es, fr, uk) on Windows.
 - Heavy model in live OBS, GPU mode in live OBS for an extended session, busy chat bursts.
 - Uninstall.
-- Windows 11, machines without NVIDIA, NVIDIA without CUDA 12 cuBLAS (CPU fallback path in live OBS).
+- Windows 11, machines without NVIDIA, and the GPU support download from inside live
+  OBS (verified with the packaged helper in a CUDA-free environment, not yet via the
+  settings window in OBS).
 - OBS in Russian UI on Windows.
 - BetterTTV/FrankerFaceZ in the OBS Twitch Chat dock.
 
@@ -124,10 +141,12 @@ Close these before any public Windows download, including a pre-release.
 4. **Back-up pruning.** Each install moves the previous plugin to
    `%ProgramData%\obs-studio\awl-plugin-backups\chat-<timestamp>` and nothing removes
    them. Keep the last one or two, and mention the folder in the uninstall notes.
-5. **GPU documentation for users.** GPU mode needs an NVIDIA driver supporting
-   CUDA 12 (527.41 or newer on Windows) and the CUDA 12 cuBLAS libraries (for example the cuBLAS
-   component of the CUDA 12.x installer). Without them the helper falls back to CPU
-   and the settings window says so. CUDA 13 is not compatible (`cublas64_12.dll` is required).
+5. **GPU support download in the field.** Test **Download GPU support** on a
+   machine that has never had CUDA, on a slow connection (the helper allows 30
+   minutes), with low disk space (about 1.4 GB is needed during installation) and
+   with cancellation. Verify the old-driver path and its **Get NVIDIA driver** link
+   on a driver older than CUDA 12. Decide whether the pack should be removed on
+   uninstall (it lives in `%LOCALAPPDATA%\awl-chat\gpu`, outside the installer's folder).
 6. **Wider hardware/OS coverage.** Windows 11, an AMD/Intel-GPU-only machine, a
    low-memory machine (8 GB) with Heavy on CPU.
 
@@ -143,6 +162,11 @@ Close these before any public Windows download, including a pre-release.
   without context. Light renders "Yes" as «Выполнено» ("Done"); Heavy renders "Bye"
   as «Поздравление» ("Congratulations"). A small per-target override table for the
   handful of affected replies is proposed; it is not implemented.
+- **Timing-sensitive isolation check.** The `chat-process-isolation` "stalled model
+  loading" case uses a 150 ms deadline that includes starting the helper process. It
+  failed once while the machine was busy compiling, then passed 6/6 when run alone.
+  Make its deadline start when the helper is running, or relax it, before relying on
+  it in CI.
 - **Catch-up is limited to the latest five messages** when the page or model becomes
   ready (by design, see [INLINE_CHAT.md](INLINE_CHAT.md)). Testers may read this as
   "earlier messages failed to translate".
@@ -152,7 +176,9 @@ Close these before any public Windows download, including a pre-release.
 - Windows 10/11 x64 only, OBS 32.2.2 only, OBS's built-in Twitch Chat dock only.
 - Unsigned development build (until stable blocker 1).
 - CPU memory: Light about 1 GB; Heavy about 2 GB while loading. The helper is limited to 4 GiB.
-- GPU requires NVIDIA, a CUDA 12 capable driver and CUDA 12 cuBLAS; otherwise CPU is used.
+- GPU requires NVIDIA and a driver supporting CUDA 12 or later (newer drivers are
+  fine), plus a one-time optional download of NVIDIA cuBLAS (about 550 MB, about
+  740 MB on disk) unless CUDA 12 is already installed. Otherwise CPU is used.
 - Twitch page markup changes can stop the adapter; the OBS log records why.
 
 ## Bring-up notes
