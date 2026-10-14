@@ -8,7 +8,7 @@ awl_chat_pending=""
 awl_chat_backup=""
 awl_chat_check=0
 if [[ ${1:-} == --check ]]; then awl_chat_check=1; shift; fi
-(( $# == 0 )) || { print -u2 'Usage: Install Awl Interpretwitch.command [--check]'; exit 2; }
+(( $# == 0 )) || { print -u2 'Usage: Install Interpretwitch.command [--check]'; exit 2; }
 finish() {
   local result=$?
   if [[ -n "$awl_chat_pending" && -d "$awl_chat_pending" ]]; then /bin/rm -rf -- "$awl_chat_pending"; fi
@@ -24,7 +24,7 @@ awl_chat_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString
 codesign --verify --deep --strict "$awl_chat_bundle"
 lipo "$awl_chat_bundle/Contents/MacOS/awl-chat" -verify_arch arm64
 [[ ! -L "$awl_chat_bundle" && -z $(find "$awl_chat_bundle" -type l -print -quit) ]] || { print -u2 'Unexpected linked package.'; exit 1; }
-if (( awl_chat_check )); then print 'Awl Interpretwitch is ready to install. No files installed.'; exit 0; fi
+if (( awl_chat_check )); then print 'Interpretwitch is ready to install. No files installed.'; exit 0; fi
 if /usr/bin/pgrep -x OBS >/dev/null; then
   print -u2 'Quit OBS completely with Command-Q, then run this installer again.'; exit 1
 else
@@ -43,5 +43,6 @@ if [[ -e "$awl_chat_target" || -L "$awl_chat_target" ]]; then
   mv "$awl_chat_target" "$awl_chat_backup"
 fi
 mv "$awl_chat_pending/awl-chat.plugin" "$awl_chat_target"
-print 'Installed. Open OBS → Docks → Awl Interpretwitch.'
-print 'Complete Twitch setup, download the model, enter your channel, then Connect Twitch.'
+print 'Installed Interpretwitch by Salvador Stream Labs.'
+print 'Open OBS → Tools → Interpretwitch for model and appearance settings.'
+print "Translations appear in OBS's Twitch Chat dock. Connect Twitch in OBS Settings → Stream if Chat is missing."

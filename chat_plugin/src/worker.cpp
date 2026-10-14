@@ -56,9 +56,12 @@ Worker::Worker(QString manifest, QString directory, QObject *parent, QString hel
             return;
         }
         send({{"type", "prepare"},
-              {"manifest", QFileInfo(profile_manifest(manifest_, profile_)).absoluteFilePath()},
-              {"directory", QFileInfo(profile_directory(directory_, profile_)).absoluteFilePath()},
-              {"model_id", model_id(profile_)},
+              {"manifest",
+               QFileInfo(profile_manifest(manifest_, profile_, target_)).absoluteFilePath()},
+              {"directory",
+               QFileInfo(profile_directory(directory_, profile_, target_)).absoluteFilePath()},
+              {"model_id", model_id(profile_, target_)},
+              {"target_language", target_},
               {"download", download_},
               {"locale", ui_locale()},
               {"device", launch_device_ == RunOn::GPU ? "gpu" : "cpu"}},
@@ -77,8 +80,7 @@ Worker::Worker(QString manifest, QString directory, QObject *parent, QString hel
             return;
         }
         if (error == QProcess::FailedToStart)
-            fail(ui_text("Translation worker could not start. Reinstall Awl Interpretwitch."),
-                 false);
+            fail(ui_text("Translation worker could not start. Reinstall Interpretwitch."), false);
         else if (error == QProcess::ReadError || error == QProcess::WriteError)
             fail(ui_text("Translation worker connection failed."));
         // Crashed is followed by finished; handle that once below.
@@ -118,7 +120,14 @@ void Worker::stop() {
     else if (wanted_)
         restart_.start(failures_ ? limits_.restart_ms : 0);
 }
-void Worker::prepare(bool download, RunOn device, ModelProfile profile) {
+void Worker::prepare(bool download, RunOn device, ModelProfile profile, QString target) {
+    if (!supports_target(profile, target)) {
+        shutdown();
+        if (status)
+            status(ui_text("Unsupported target language."));
+        return;
+    }
+    target_ = std::move(target);
     ++epoch_;
     discard_waiting();
     clear_cache_ = false;
@@ -129,23 +138,28 @@ void Worker::prepare(bool download, RunOn device, ModelProfile profile) {
     failures_ = 0;
     recovery_reason_.clear();
     stop();
+    if (state_changed)
+        state_changed(State::Preparing, requested_, {});
 }
-void Worker::cancel_download() {
+void Worker::shutdown() {
     wanted_ = false;
     ++epoch_;
     discard_waiting();
     stop();
+    if (state_changed)
+        state_changed(State::Stopped, actual_, {});
+}
+void Worker::cancel_download() {
+    shutdown();
     if (status)
         status(ui_text("Download cancelled."));
-    if (ready)
-        ready(false, actual_, {});
 }
 void Worker::launch() {
     if (!wanted_ || stopping_ || process_.state() != QProcess::NotRunning)
         return;
     const QFileInfo helper(helper_);
     if (!helper.isAbsolute() || !helper.isFile() || helper.isSymLink() || !helper.isExecutable()) {
-        fail(ui_text("Translation worker is missing. Reinstall Awl Interpretwitch."), false);
+        fail(ui_text("Translation worker is missing. Reinstall Interpretwitch."), false);
         return;
     }
     QProcessEnvironment environment;
@@ -169,6 +183,7 @@ void Worker::launch() {
     process_.setProcessEnvironment(environment);
     process_.setWorkingDirectory(helper.absolutePath());
     phase_ = Phase::Preparing;
+    status_updates_ = 0;
     input_.clear();
     if (process_.isOpen())
         process_.readAllStandardOutput();
@@ -191,6 +206,10 @@ void Worker::send(QJsonObject value, int timeout) {
 void Worker::read() {
     if (stopping_ || !wanted_) {
         process_.readAllStandardOutput();
+        return;
+    }
+    if (process_.bytesAvailable() > 2 * ipc::frame_limit) {
+        fail(ui_text("Translation worker response was too large."));
         return;
     }
     while (process_.bytesAvailable()) {
@@ -221,7 +240,11 @@ void Worker::receive(const QJsonObject &value) {
     const auto type = value["type"].toString();
     if (type == "status" && phase_ == Phase::Preparing) {
         const auto message = value["text"].toString();
-        if (message.size() > limits::status_characters)
+        // A complete catalogue emits at most six checks + 101 progress steps
+        // per file. Bound valid-looking output too, so a faulty helper cannot
+        // keep the OBS event loop occupied indefinitely.
+        if (!value["text"].isString() || message.size() > limits::status_characters ||
+            ++status_updates_ > 640)
             throw std::runtime_error("Worker status too long.");
         if (status)
             status(message);
@@ -232,7 +255,8 @@ void Worker::receive(const QJsonObject &value) {
         const auto device = value["device"].toString();
         const auto fallback = value["fallback"].toString();
         if ((device != "cpu" && device != "gpu") || fallback.size() > limits::status_characters ||
-            value["model_id"].toString() != model_id(profile_))
+            value["model_id"].toString() != model_id(profile_, target_) ||
+            value["target_language"].toString() != target_)
             throw std::runtime_error("Invalid worker device.");
         actual_ = device == "gpu" ? RunOn::GPU : RunOn::CPU;
         const bool good = value["ok"].toBool();
@@ -244,18 +268,26 @@ void Worker::receive(const QJsonObject &value) {
             discard_waiting();
             stop();
         }
-        if (ready)
-            ready(good, actual_, recovery_reason_.isEmpty() ? fallback : recovery_reason_);
+        if (state_changed)
+            state_changed(good ? State::Ready : State::Failed, actual_,
+                          recovery_reason_.isEmpty() ? fallback : recovery_reason_);
     } else if (type == "result" && phase_ == Phase::Translating && active_) {
         const auto text = value["text"].toString();
+        const auto language = value["source_language"].toString();
+        const bool valid_language =
+            language.isEmpty() || ((language.size() == 2 || language.size() == 3) &&
+                                   std::all_of(language.begin(), language.end(), [](QChar c) {
+                                       return c >= QLatin1Char('a') && c <= QLatin1Char('z');
+                                   }));
         if (!value["text"].isString() || text.size() > limits::translation_characters ||
-            !value["translated"].isBool() || !value["uncertain"].isBool())
+            !value["translated"].isBool() || !valid_language ||
+            !value["source_language"].isString())
             throw std::runtime_error("Invalid translation result.");
         const auto job = std::exchange(active_, {});
         phase_ = Phase::Idle;
         cancel_sent_ = false;
         if (job->epoch == epoch_ && result)
-            result(*job, {text, value["translated"].toBool(), value["uncertain"].toBool()});
+            result(*job, {text, value["translated"].toBool(), language});
     } else if (type == "cleared" && phase_ == Phase::Clearing)
         phase_ = Phase::Idle;
     else
@@ -312,9 +344,6 @@ void Worker::pump() {
              std::max<qint64>(1, limits::translation_age_ms - (now() - active_->arrived)))));
 }
 void Worker::fail(const QString &reason, bool recover) {
-    const auto failed = active_;
-    if (failed && failed->epoch == epoch_ && result)
-        result(*failed, {failed->message.original, false, true});
     const auto dropped = queue_.size();
     discard_waiting();
     if (dropped && skipped)
@@ -329,8 +358,8 @@ void Worker::fail(const QString &reason, bool recover) {
     if (status)
         status(reason + (retry ? ui_text(" Restarting translation…")
                                : ui_text(" Chat remains available. Use Download model to retry.")));
-    if (!retry && ready)
-        ready(false, actual_, {});
+    if (state_changed)
+        state_changed(retry ? State::Recovering : State::Failed, actual_, {});
 }
 void Worker::discard(const Job &job) {
     if (discarded)

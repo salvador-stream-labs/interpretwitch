@@ -1,62 +1,45 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
-#include "twitch.hpp"
+#include "inline_chat.hpp"
 #include "worker.hpp"
-#include <QWidget>
-#include "chat_list.hpp"
-#include "chat_view.hpp"
-#include <QLineEdit>
-#include <QPushButton>
 #include <QCheckBox>
-#include <QLabel>
-#include <QSettings>
-#include <QToolButton>
 #include <QComboBox>
+#include <QDialog>
+#include <QLabel>
+#include <QPushButton>
+#include <QSettings>
 #include <memory>
-#include <QStackedWidget>
-#include "twitch_setup.hpp"
+
 namespace awl::chat {
-class Panel : public QWidget {
+// A modeless settings window; closing it does not stop chat translation.
+class Panel : public QDialog {
   public:
     Panel(QString manifest, QString cache, QString settings, QWidget *parent = nullptr,
-          bool preview = false, QString helper = {});
+          bool preview = false, QString helper = {}, InlineChat::Execute execute = {});
     ~Panel();
-    void receive(Event event);
+    void start();
 
   private:
     QSettings settings_;
-    TwitchClient twitch_;
     std::unique_ptr<Worker> worker_;
-    ChatList rows_;
-    ChatView *list_;
-    QLineEdit *channel_;
-    QString client_id_;
-    QPushButton *setup_button_;
-    QLabel *setup_status_;
-    QStackedWidget *pages_;
-    QWidget *chat_page_;
-    TwitchSetup *setup_;
-    QPushButton *connect_, *download_, *cancel_, *jump_, *approve_;
-    QCheckBox *remember_, *originals_, *pause_;
-    QComboBox *run_on_, *resource_usage_;
-    QLabel *connection_, *model_, *empty_, *device_help_, *profile_help_;
-    QToolButton *connection_toggle_;
-    QString authorization_url_;
-    bool model_ready_ = false, model_loading_ = false, desired_ = false, preview_ = false;
+    std::unique_ptr<InlineChat> bridge_;
+    QCheckBox *enabled_, *language_label_, *background_;
+    QComboBox *run_on_, *resource_usage_, *target_language_;
+    QPushButton *download_, *cancel_, *reconnect_;
+    QLabel *connection_, *model_, *device_help_, *profile_help_;
+    Worker::State model_state_ = Worker::State::Stopped;
+    bool preview_ = false, started_ = false;
     size_t skipped_ = 0;
     void build_ui();
-    void open_setup();
-    void update_setup_status();
     void bind_worker();
-    void bind_twitch();
-    void bind_controls();
-    void restore_connection();
     void save_settings();
-    void begin_connection();
-    void clear_chat();
-    RunOn selected_device() const;
-    ModelProfile selected_profile() const;
+    void change_enabled();
     void prepare_model(bool download);
     void update_device_help();
+    void update_targets(const QString &preferred);
+    void change_model();
+    QString selected_target() const;
+    RunOn selected_device() const;
+    ModelProfile selected_profile() const;
 };
 } // namespace awl::chat

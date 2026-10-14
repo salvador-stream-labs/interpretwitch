@@ -8,7 +8,7 @@ namespace awl::chat {
 class Translator {
   public:
     explicit Translator(const QString &directory, RunOn device = RunOn::CPU,
-                        ModelProfile profile = ModelProfile::Light);
+                        ModelProfile profile = ModelProfile::Light, QString target = "ru");
     ~Translator();
     Translation translate(const Message &message, const std::function<bool()> &cancel);
     void clear_cache();

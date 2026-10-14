@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "model_id": "opus-mt-en-es-int8",
+  "model": "OPUS-MT en → es, INT8",
+  "source_language": "en",
+  "target_language": "es",
+  "origin": "Helsinki-NLP/opus-mt-en-es",
+  "conversion": "manancode/opus-mt-en-es-ctranslate2-android",
+  "revision": "48e9476d8298d0b29f2f1d315a3e650399ae5abc",
+  "files": [
+    {
+      "filename": "lid.176.ftz",
+      "size": 938013,
+      "sha256": "8f3472cfe8738a7b6099e8e999c3cbfae0dcd15696aac7d7738a8039db603e83",
+      "url": "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"
+    },
+    {
+      "filename": "config.json",
+      "size": 223,
+      "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af",
+      "url": "https://huggingface.co/manancode/opus-mt-en-es-ctranslate2-android/resolve/48e9476d8298d0b29f2f1d315a3e650399ae5abc/config.json"
+    },
+    {
+      "filename": "model.bin",
+      "size": 79567635,
+      "sha256": "30c5c2de08329c61860777fbe471e2dd413f64adbde543b2848b5ac3b5d6f865",
+      "url": "https://huggingface.co/manancode/opus-mt-en-es-ctranslate2-android/resolve/48e9476d8298d0b29f2f1d315a3e650399ae5abc/model.bin"
+    },
+    {
+      "filename": "shared_vocabulary.json",
+      "size": 1276136,
+      "sha256": "040e48c9d00734f48506e052695837720bd1f6aa01c70636cde83038362baf19",
+      "url": "https://huggingface.co/manancode/opus-mt-en-es-ctranslate2-android/resolve/48e9476d8298d0b29f2f1d315a3e650399ae5abc/shared_vocabulary.json"
+    },
+    {
+      "filename": "source.spm",
+      "size": 801636,
+      "sha256": "4dd547c24816a335e7b0b2e63376a8f1b3cbfc671eda5ab808dd44fdadaa8791",
+      "url": "https://huggingface.co/manancode/opus-mt-en-es-ctranslate2-android/resolve/48e9476d8298d0b29f2f1d315a3e650399ae5abc/source.spm"
+    },
+    {
+      "filename": "target.spm",
+      "size": 825924,
+      "sha256": "e236ee6d866b635c0142114f8647f39831f9d92534aa2aad75c942f6a78ad0e3",
+      "url": "https://huggingface.co/manancode/opus-mt-en-es-ctranslate2-android/resolve/48e9476d8298d0b29f2f1d315a3e650399ae5abc/target.spm"
+    }
+  ]
+}

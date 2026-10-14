@@ -17,5 +17,5 @@ for source, translation in entries.items():
     assert isinstance(translation, str) and translation.strip(), f'Empty translation: {source}'
     assert sorted(re.findall(r'%\d+', source)) == sorted(re.findall(r'%\d+', translation)), source
     assert source.count('\n') == translation.count('\n'), f'Paragraph structure changed: {source}'
-assert len(used) > 100, 'Expected UI translation markers were not found'
+assert len(used) > 40, 'Expected UI translation markers were not found'
 print(f'{len(entries)} non-empty Russian entries; {len(used)} marked UI strings covered; placeholders and paragraphs match.')

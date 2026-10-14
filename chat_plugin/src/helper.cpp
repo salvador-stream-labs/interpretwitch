@@ -142,22 +142,26 @@ int main(int argc, char **argv) {
                 const auto manifest = command.value["manifest"].toString();
                 const auto directory = command.value["directory"].toString();
                 const auto device = command.value["device"].toString();
+                const auto target = command.value["target_language"].toString("ru");
                 const auto profile = model_profile(
                     command.value["model_id"].toString(model_id(ModelProfile::Light)));
                 if (!QFileInfo(manifest).isAbsolute() || !QFileInfo(directory).isAbsolute() ||
                     manifest.size() > 32768 || directory.size() > 32768 ||
                     (device != "cpu" && device != "gpu") || !command.value["download"].isBool() ||
-                    !profile)
+                    !profile || !supports_target(*profile, target) ||
+                    command.value["model_id"].toString(model_id(ModelProfile::Light)) !=
+                        model_id(*profile, target))
                     std::_Exit(2);
                 RunOn actual = device == "gpu" ? RunOn::GPU : RunOn::CPU;
                 QString fallback;
                 try {
                     const std::atomic<bool> cancel{false};
                     if (prepare_models(manifest, directory, command.value["download"].toBool(),
-                                       cancel, say, {}, *profile)) {
+                                       cancel, say, {}, *profile, target)) {
                         say(ui_text("Loading local translation · %1…").arg(run_on_name(actual)));
                         try {
-                            translator = std::make_unique<Translator>(directory, actual, *profile);
+                            translator =
+                                std::make_unique<Translator>(directory, actual, *profile, target);
                         } catch (const std::exception &error) {
                             if (actual != RunOn::GPU)
                                 throw;
@@ -165,8 +169,8 @@ int main(int argc, char **argv) {
                                 ui_error(error.what(), "GPU initialization failed. Using CPU.")
                                     .left(limits::status_characters);
                             say(ui_text("GPU could not start. Loading CPU translation…"));
-                            translator =
-                                std::make_unique<Translator>(directory, RunOn::CPU, *profile);
+                            translator = std::make_unique<Translator>(directory, RunOn::CPU,
+                                                                      *profile, target);
                             actual = RunOn::CPU;
                         }
                     } else
@@ -179,31 +183,29 @@ int main(int argc, char **argv) {
                         {"id", id},
                         {"ok", bool(translator)},
                         {"device", actual == RunOn::GPU ? "gpu" : "cpu"},
-                        {"model_id", model_id(*profile)},
+                        {"model_id", model_id(*profile, target)},
+                        {"target_language", target},
                         {"fallback", fallback}});
             } else if (type == "translate" && translator) {
                 const auto message = ipc::message(command.value["message"].toObject());
-                Translation translation{message.original, false, true};
                 const auto started = std::chrono::steady_clock::now();
-                try {
-                    translation = translator->translate(message, [&] {
-                        return command.generation != input.generation ||
-                               std::chrono::steady_clock::now() - started >
-                                   std::chrono::milliseconds(limits::translation_age_ms);
-                    });
-                } catch (...) {
-                } // Keep original text; a native crash is handled by the parent.
+                // Unexpected inference errors terminate this helper and reach the
+                // parent's bounded recovery, rather than silently claiming health.
+                const auto translation = translator->translate(message, [&] {
+                    return command.generation != input.generation ||
+                           std::chrono::steady_clock::now() - started >
+                               std::chrono::milliseconds(limits::translation_age_ms);
+                });
                 QJsonObject reply{{"type", "result"},
                                   {"id", id},
                                   {"text", translation.text},
                                   {"translated", translation.translated},
-                                  {"uncertain", translation.uncertain}};
+                                  {"source_language", translation.source_language}};
                 if (translation.text.size() > limits::translation_characters ||
                     QJsonDocument(reply).toJson(QJsonDocument::Compact).size() >
                         ipc::frame_limit - 32) {
                     reply["text"] = message.original;
                     reply["translated"] = false;
-                    reply["uncertain"] = true;
                 }
                 output(reply);
             } else if (type == "clear" && translator) {

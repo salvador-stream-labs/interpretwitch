@@ -18,10 +18,12 @@
 namespace awl::chat {
 bool prepare_models(const QString &manifest, const QString &directory, bool download,
                     const std::atomic<bool> &cancel, const Status &status, const Fetch &fetch,
-                    ModelProfile profile) {
+                    ModelProfile profile, const QString &target) {
+    if (!supports_target(profile, target))
+        throw std::runtime_error("Unsupported target language.");
     QFile index(manifest);
     if (!index.open(QIODevice::ReadOnly))
-        throw std::runtime_error("Model catalogue is missing. Reinstall Awl Interpretwitch.");
+        throw std::runtime_error("Model catalogue is missing. Reinstall Interpretwitch.");
     const auto bytes = index.read(65537);
     const auto catalogue = QJsonDocument::fromJson(bytes).object();
     const auto files = catalogue["files"].toArray();
@@ -32,7 +34,9 @@ bool prepare_models(const QString &manifest, const QString &directory, bool down
         required = {"config.json", "lid.176.ftz", "model.bin", "shared_vocabulary.json",
                     "sentencepiece.bpe.model"};
     const qint64 size_limit = (heavy ? 512LL : 256LL) * 1024 * 1024;
-    if (catalogue["model_id"].toString(model_id(ModelProfile::Light)) != model_id(profile))
+    if (catalogue["model_id"].toString(model_id(ModelProfile::Light)) !=
+            model_id(profile, target) ||
+        (!heavy && catalogue["target_language"].toString("ru") != target))
         throw std::runtime_error("Invalid model catalogue.");
     if (bytes.size() > 65536 || catalogue["schema"].toInt() != 1 || files.size() != required.size())
         throw std::runtime_error("Invalid model catalogue.");

@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "model_id": "opus-mt-en-uk-int8",
+  "model": "OPUS-MT en → uk, INT8",
+  "source_language": "en",
+  "target_language": "uk",
+  "origin": "Helsinki-NLP/opus-mt-en-uk",
+  "conversion": "manancode/opus-mt-en-uk-ctranslate2-android",
+  "revision": "5a09b42cd82473da42b8001467c975445961a25c",
+  "files": [
+    {
+      "filename": "lid.176.ftz",
+      "size": 938013,
+      "sha256": "8f3472cfe8738a7b6099e8e999c3cbfae0dcd15696aac7d7738a8039db603e83",
+      "url": "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"
+    },
+    {
+      "filename": "config.json",
+      "size": 223,
+      "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af",
+      "url": "https://huggingface.co/manancode/opus-mt-en-uk-ctranslate2-android/resolve/5a09b42cd82473da42b8001467c975445961a25c/config.json"
+    },
+    {
+      "filename": "model.bin",
+      "size": 77792355,
+      "sha256": "48294770fc750ac5ef9f998d46c99e30eddda60e8267a23ed7c3420ce7976e00",
+      "url": "https://huggingface.co/manancode/opus-mt-en-uk-ctranslate2-android/resolve/5a09b42cd82473da42b8001467c975445961a25c/model.bin"
+    },
+    {
+      "filename": "shared_vocabulary.json",
+      "size": 2070876,
+      "sha256": "d584fec9ad0a0cc9ab1def128215f314fe6681620885e6fb3a99a812c3ba2cd4",
+      "url": "https://huggingface.co/manancode/opus-mt-en-uk-ctranslate2-android/resolve/5a09b42cd82473da42b8001467c975445961a25c/shared_vocabulary.json"
+    },
+    {
+      "filename": "source.spm",
+      "size": 808645,
+      "sha256": "4dc9157e60a15b157c2f3d5f892379b03aed111c9fe8ac7cecba5f2aa56379ef",
+      "url": "https://huggingface.co/manancode/opus-mt-en-uk-ctranslate2-android/resolve/5a09b42cd82473da42b8001467c975445961a25c/source.spm"
+    },
+    {
+      "filename": "target.spm",
+      "size": 1007605,
+      "sha256": "7abd810b2df512e6fe177f8732f6a0b3107614c84cc52aba20d805b4cb0d7b6b",
+      "url": "https://huggingface.co/manancode/opus-mt-en-uk-ctranslate2-android/resolve/5a09b42cd82473da42b8001467c975445961a25c/target.spm"
+    }
+  ]
+}

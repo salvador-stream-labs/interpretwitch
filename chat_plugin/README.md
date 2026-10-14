@@ -1,191 +1,73 @@
-# Using Awl Interpretwitch
+# Interpretwitch
 
-Version 0.4.0. A private OBS dock that translates incoming Twitch chat into Russian.
-Messages are never posted back to Twitch. The dock is not a scene source, but will
-be visible if you capture the OBS window or its display.
+An OBS plugin by **Salvador Stream Labs**, version 0.8.1.
 
-The interface follows **OBS → Settings → General → Language**: Russian for Russian
-locales, English otherwise. Restart OBS after changing its language. The Russian
-product name is **Awl Интерпретвич**. Interface language does not change the
-translation target, which is currently Russian.
+## Setup
 
-## Choose a model
+Connect Twitch in **OBS Settings → Stream** and open **Docks → Chat**. If Chat is
+missing, disconnect/reconnect the Twitch account in OBS’s Stream settings. An OBS
+HTTP 400 authentication error can prevent its Chat dock from being created.
+Interpretwitch does not require a developer account, Client ID or separate login.
 
-| Resource usage | Download | CPU inference | Intended use |
-| --- | --- | --- | --- |
-| Light (default) | 83.4 MB | 2 threads | Small English → Russian model |
-| Heavy | 496.8 MB | 1 thread | More languages → Russian, more RAM and slower translation |
+Open **Tools → Interpretwitch** (Russian: **Инструменты → Интерпретвич**).
+Choose resource usage and **Translate into** (Russian by default), then click **Download model** if it is not already cached. Downloads
+are explicit and verified; the package itself contains no model weights.
 
-Heavy uses quantized M2M100 418M; it means broader language coverage, not a promise
-of better English translation. Russian, unsupported and uncertain messages remain
-unchanged. Short chat and gaming slang can be mistranslated by either model.
-Only the selected model is resident. Switching reuses verified cached files,
-releases the previous helper first and preserves Twitch and displayed history.
-Missing files download only after **Download model**, never just from changing
-the dropdown. Existing Light files stay where they were; Heavy has its own cache.
+## Settings
 
-Incoming chat can tolerate some delay, so Heavy uses one CPU inference thread to
-limit parallel competition with a stream. This is not a percentage CPU cap; a
-larger model still performs more work per message and stays in RAM while loaded.
-Queues and deadlines remain bounded, with original text shown if work is skipped.
+| Control | Effect |
+| --- | --- |
+| Enable translation | On by default, remembered across launches. Off removes additions, closes the bridge and unloads the helper/model. |
+| Reconnect to chat | Retry attachment after opening/reconnecting OBS’s Twitch chat. |
+| Resource usage: Light | English chat → Russian, French, German, Spanish or Ukrainian. Approximately 80–84 MB per selected pair; two CPU inference threads. |
+| Resource usage: Heavy | Multilingual chat → any of the model’s 100 targets, approximately 497 MB downloaded once. One CPU inference thread. More RAM and work per message. |
+| Translate into | Russian by default. Light lists only verified small packs; Heavy lists all supported targets. Already-target-language messages stay unchanged. |
+| Run on | CPU by default. NVIDIA GPU can be selected on Windows with CPU fallback; this revision needs Windows/GPU validation. Mac GPU is unsupported. |
+| Show detected language | A subtle label such as АН (English, when translating into Russian) precedes the smaller original text below the translation. Hover for the full language name. Detection can be wrong, especially for short or mixed-language messages. |
+| Subtle background around translations | A faint theme-aware background encloses each successfully translated original/translation pair. |
 
-## Install the Mac development build
+Settings apply immediately. Closing the window keeps translation running. The
+window is modeless, so OBS remains usable while it is open. Settings use OBS’s chosen language, English or Russian; changes to that UI language
+apply after restarting OBS. Pills and full language names in tooltips follow the
+translation target. Russian uses distinct two- or three-letter UI abbreviations
+(not ISO codes); English uses ISO codes; other targets shorten localized names. Fonts, message timestamps, username colours and the
+surrounding chat layout remain Twitch’s responsibility.
 
-Build and stage the package first using [BUILD.md](../BUILD.md).
+Messages already in the target language, unsupported and uncertain messages remain unchanged. A static waiting
+label appears during translation. Only bounded recent rows are inspected; busy
+chat may skip translations. Text stays selectable, and deleted/hidden rows lose
+their added translation. On startup or reconnect, only the latest five existing
+messages are eligible for translation. New messages then translate as they arrive.
+The same catch-up limit applies after model loading/recovery or a target change,
+so restarting OBS does not translate the whole conversation. This is not a transcript recorder.
 
-1. Quit OBS completely with Command-Q.
-2. Run `Install Awl Interpretwitch.command` in the project root.
-3. Open OBS and select **Docks → Awl Interpretwitch** (Russian: **Awl Интерпретвич**).
-4. On first use, complete **Set up Twitch** as described below. If an ID is already
-   saved, the dock opens normally. Setup can also be opened from **Settings**.
-5. Choose **Resource usage**, then click **Download model**. Light downloads
-   83.4 MB; Heavy downloads 496.8 MB. Models are not in the plugin package. The
-   button verifies and repairs partial/damaged downloads for the selected model.
-6. Enter the channel name and click **Connect Twitch**. Approve read-only chat
-   access on Twitch's page.
+The small Interpretwitch status below the Stream Chat title shows whether the
+adapter is preparing, ready, translating, recovering or unavailable. Hover for
+details and the last reply time. It uses existing events, with no idle probes or
+animated health spinner. If translation fails, originals stay available. Use
+**Reconnect to chat** to retry; downloaded models are reused. The indicator is
+not a guarantee about translation accuracy or the health of OBS itself.
 
-This package targets Apple Silicon, macOS 14+, OBS **32.2.2** and its Qt **6.11.1**.
-It is locally ad-hoc signed, not Developer ID signed/notarized. Older AWL Chat bundles
-are backed up outside OBS's plugin search directory. `--check` only verifies the
-package; it does not install or change settings.
+Changing target clears old translations, queued work and the previous helper cache.
+Only one model is loaded at a time. Heavy reuses the same files for every target;
+Light pairs have separate download/cache directories and remain cached for reuse.
+Changing the selection never downloads automatically: use **Download model** for
+a missing pack. If a Heavy target has no Light pack, switching to Light restores
+the last available Light choice (Russian initially). The UI shows the resulting target.
 
-## One-time Twitch application setup
+## Privacy and upgrades
 
-For this development build, register an application once. This identifies the
-plugin to Twitch; authorizing it lets the plugin in your local OBS receive remote
-Twitch chat messages. It requests read-only chat access, cannot send messages or
-start a stream, and translates on your computer. You do not need to write code or
-run a server. This is independent of OBS's own streaming-account login.
+Chat text travels from Twitch to its existing OBS browser, through a capability-
+protected localhost connection, and into the local translation helper. It is not
+sent to Salvador Stream Labs or a cloud translation service. Interpretwitch reads
+no Twitch passwords, cookies or account tokens, and sends no chat messages.
 
-All four steps are on one scrollable page, with **Save** and **Cancel** always
-available. **I already have a Client ID** scrolls to the input on that same page.
-Opening setup makes no network request. Only explicit browser-button clicks open
-Twitch's developer console.
+Existing models and model/device choices are reused. Internal `awl-chat` paths
+stay unchanged. The old standalone login, registration guide and separate dock
+are gone. Earlier versions may have left their unused sign-in entry in the system
+credential store; this version does not read it. The old app authorization can be
+revoked on Twitch’s Connections page independently of OBS’s own connection.
 
-1. **Open the developer console.** Use the guide's button to open
-   [Twitch's console](https://dev.twitch.tv/console/apps), sign in, then choose
-   **Applications → Register Your Application**. Twitch requires a verified email
-   and two-factor authentication.
-2. **Register a Public application.** Fill in the following fields:
-
-   | Field | Value |
-   | --- | --- |
-   | Name | Awl Interpretwitch followed by your channel name (must be unique) |
-   | OAuth Redirect URLs | `https://localhost` |
-   | Category | Chat Bot |
-   | Client Type | Public |
-
-   The guide provides **Copy redirect URL**. Click **Add** beside the URL and remove
-   any empty URL rows, complete verification, then **Create**. The URL is a
-   registration placeholder: device authorization needs no local callback server
-   or certificate, and you do not open the URL.
-3. **Copy your Client ID.** Use **Open your applications**, find the app, click
-   **Manage**, then copy its **Client ID** into the guide. Only the public ID is
-   needed, never a secret, token or password. The plugin checks its format; Twitch
-   validates the actual registration when you connect. Existing apps and IDs still
-   work after an update or rename.
-4. **Authorize read-only chat access.** Choose **Save**, enter the channel to read,
-   then **Connect Twitch** and approve chat access in the browser. Saving alone
-   starts neither sign-in nor a model download. **Cancel** discards the draft.
-   Editing registration is disabled while connected.
-
-The guide's browser-field names follow [Twitch's registration documentation](https://dev.twitch.tv/docs/authentication/register-app/).
-Russian instructions retain the field names shown in Twitch's English console so
-users can find them. Twitch and OS/browser dialogs control their own language.
-
-A distributable release can include the project's registered public Client ID,
-so users only need Connect Twitch. This checkout does not invent a Client ID or
-reuse OBS's stored Twitch credentials. Twitch may require two-factor authentication
-on the developer account to register an application.
-
-Device authorization requests only `user:read:chat`. The browser displays Twitch's
-authorization page; the dock also shows the activation code and a button to reopen
-it. Remember sign-in stores the access/refresh tokens in macOS Keychain or Windows
-Credential Manager, separately from ordinary settings. Tokens are validated at
-connection and at least hourly, rotated on refresh, and removed on Disconnect.
-If saving credentials fails, the connection is session-only. Linux currently has
-session-only credentials. No access tokens, refresh tokens or chat text are logged.
-
-Protocol: https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#device-code-grant-flow
-and https://dev.twitch.tv/docs/eventsub/handling-websocket-events/
-
-## Reading chat
-
-- **Show original** toggles the original under a translation or waiting indicator.
-- **Pause** stops new translation work; original messages continue.
-- Scroll upward to read earlier messages. **Latest messages** returns to the end.
-- Drag to select words or several messages. Copy with **Command-C** on Mac,
-  **Ctrl-C** on Windows, or the text's right-click menu. Selection stops automatic
-  scrolling. Selected messages retain their displayed wording until selection is
-  cleared, so an arriving translation does not change what you are copying.
-  Moderation deletions and the 200-message retention limit still apply immediately.
-- **Clear** clears text and waiting translations immediately.
-- Twitch message deletions, user purges and chat clears also remove local rows.
-- **Settings** reveals channel, Disconnect, Resource usage, Run on and sign-in settings.
-  The controls scroll within a short dock.
-  Changing channels takes effect on the next connection. Disconnect first.
-- **Run on** selects CPU or GPU (NVIDIA). The choice is saved. When a model is
-  loaded, changing the device releases it before loading the replacement, without
-  restarting OBS or reconnecting Twitch. Original messages continue to appear
-  during loading; queued old-device translations are cancelled. Existing history
-  stays visible. Before first use, the choice is only saved, with no model loaded.
-
-The native text view uses a Twitch-style dark background and inline bold usernames.
-It uses Twitch's supplied name colour, adjusted only when too dark to read; users
-without a colour receive a stable fallback. Emotes remain text, with no extra image
-downloads or embedded browser. Rendering updates individual message blocks and
-retains at most 200; text is inserted literally, never interpreted as HTML.
-
-Light translates confidently identified English and leaves mixed Cyrillic text
-unchanged. Heavy also translates confidently detected languages supported by
-M2M100. Both leave Russian, unsupported and ambiguous short messages unchanged.
-Common English greetings are recognized explicitly. Twitch's structured emotes,
-mentions and links stay untouched. A small list of common third-party emote names
-is also preserved; arbitrary BTTV/7TV catalogues are not downloaded or guaranteed.
-Short text portions separated by protected fragments are translated separately,
-which can reduce grammatical fluency. Either model can translate gaming terms
-too literally; the original remains available.
-
-## Resource limits
-
-Translation defaults to native CTranslate2 INT8 on **CPU**, with two inference
-threads for Light, one for Heavy and one resident model. **GPU (NVIDIA)** uses CUDA device 0 and prefers
-INT8 weights with FP16 operations where supported; CTranslate2 selects a supported
-fallback precision on older cards. It uses the same downloaded model files.
-Language detection, tokenization and the interface still use CPU.
-
-GPU requires a CUDA-enabled CTranslate2 library, its matching CUDA runtime
-dependencies and a compatible NVIDIA driver. NVIDIA execution and gameplay impact
-have not been tested. A Windows package with those dependencies is still needed.
-This engine has no Metal backend, so the GPU choice is disabled on Mac.
-
-Before reporting GPU ready, the loader runs a tiny fixed-input decode to catch
-lazily loaded CUDA-library failures. If GPU startup fails, the worker loads CPU
-translation and the settings show both the actual CPU device and an explanation
-(technical detail in the tooltip). The saved GPU preference is retained for the
-next load. CPU fallback does not hide missing or invalid model files. This is
-startup recovery; a later per-message inference error shows the original text.
-
-There is no Python runtime, audio processing or Whisper model in this feature.
-OBS's existing Qt interface libraries render the dock. GPU mode shares graphics
-resources with games and encoding and is not guaranteed to be faster for chat.
-
-Limits: 200 displayed messages, 24 waiting translations, a 15-second queue age and
-generation deadline, 256 cached translations, 1,024 recent EventSub envelope IDs,
-64 KiB incoming events, 256 input/output tokens per translated portion and 16
-portions per message. Queue overload shows original text instead of a late
-translation. The separate worker is terminated on plugin shutdown, cancellation
-or a missed deadline. Cached models remain on disk. A force-stopped download can
-leave an uncommitted temporary file; incomplete files are never loaded as models.
-Ordinary inference crashes are isolated, but faults in the dock, OS or a graphics
-driver can still affect OBS. This is process isolation, not a complete security sandbox.
-
-All translation happens locally. Twitch chat/authentication and explicit model
-downloads require the internet. Chat history is memory-only, bounded, and cleared
-when the dock is destroyed. No telemetry, transcript files or background service.
-
-## Development and review
-
-See [build instructions](../BUILD.md), the [source map](ARCHITECTURE.md),
-[process isolation](ISOLATION.md) and [dependency notices](THIRD_PARTY_NOTICES.md).
-Windows packaging, NVIDIA execution and concurrent gameplay remain unvalidated.
+See [architecture](ARCHITECTURE.md), [browser adapter limits](INLINE_CHAT.md),
+[isolation](ISOLATION.md), [build instructions](../BUILD.md) and
+[third-party notices](THIRD_PARTY_NOTICES.md).

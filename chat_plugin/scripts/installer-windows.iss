@@ -11,9 +11,9 @@
 
 [Setup]
 AppId={{6B0C1E7A-3F2D-4C55-9A61-5E2B7D4F8A13}
-AppName=Awl Interpretwitch
+AppName=Interpretwitch
 AppVersion={#AppVersion}
-AppPublisher=AWL contributors
+AppPublisher=Salvador Stream Labs
 DefaultDirName={commonappdata}\obs-studio\plugins\awl-chat
 DisableDirPage=yes
 DisableProgramGroupPage=yes
@@ -21,11 +21,11 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
-OutputBaseFilename=AwlInterpretwitch-{#AppVersion}-windows-x64-setup
+OutputBaseFilename=Interpretwitch-{#AppVersion}-windows-x64-setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayName=Awl Interpretwitch (OBS plugin)
+UninstallDisplayName=Interpretwitch (OBS plugin)
 CloseApplications=no
 
 [Languages]
@@ -39,13 +39,15 @@ en.WrongObs=This development package is built for OBS {#ObsVersion}. Found OBS %
 ru.WrongObs=Этот пакет собран для OBS {#ObsVersion}. Установлена версия OBS %1.
 en.ObsRunning=Quit OBS completely, then click Retry.
 ru.ObsRunning=Полностью закройте OBS и нажмите «Повтор».
+en.CheckFailed=Could not check whether OBS is running. Installation stopped without changing the plugin.
+ru.CheckFailed=Не удалось проверить, запущен ли OBS. Установка остановлена без изменения плагина.
 
 [Files]
 Source: "{#Stage}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Messages]
-en.FinishedLabel=Setup has installed Awl Interpretwitch.%n%nOpen OBS → Docks → Awl Interpretwitch. Complete Twitch setup, download the model, enter your channel, then Connect Twitch.
-ru.FinishedLabel=Awl Interpretwitch установлен.%n%nОткройте OBS → Доки → Awl Interpretwitch. Настройте Twitch, загрузите модель, укажите канал и нажмите «Подключить Twitch».
+en.FinishedLabel=Interpretwitch by Salvador Stream Labs is installed.%n%nOpen OBS → Tools → Interpretwitch. Choose a model and download it if needed. Translations appear in OBS’s Twitch Chat dock.
+ru.FinishedLabel=Интерпретвич от Salvador Stream Labs установлен.%n%nОткройте OBS → Инструменты → Интерпретвич. Выберите и при необходимости загрузите модель. Перевод появится в панели чата Twitch в OBS.
 
 [Code]
 var
@@ -69,7 +71,7 @@ begin
     Processes := Service.ExecQuery('SELECT ProcessId FROM Win32_Process WHERE Name = ''obs64.exe''');
     Result := Processes.Count > 0;
   except
-    Result := False;
+    RaiseException(CustomMessage('CheckFailed'));
   end;
 end;
 
@@ -96,16 +98,18 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Backups: String;
+  Backups, Candidate: String;
 begin
   if CurStep = ssInstall then begin
     // Keep the previous plugin intact, as the Mac installer does.
     if DirExists(ExpandConstant('{app}')) then begin
       Backups := ExpandConstant('{commonappdata}\obs-studio\awl-plugin-backups');
       ForceDirectories(Backups);
-      Backup := Backups + '\chat-' + GetDateTimeString('yyyymmddhhnnss', #0, #0);
-      if not RenameFile(ExpandConstant('{app}'), Backup) then
-        RaiseException('Could not back up the existing plugin to ' + Backup);
+      Candidate := Backups + '\chat-' + GetDateTimeString('yyyymmddhhnnss', #0, #0);
+      if not RenameFile(ExpandConstant('{app}'), Candidate) then
+        RaiseException('Could not back up the existing plugin to ' + Candidate);
+      // Only arm rollback after the old installation was actually moved.
+      Backup := Candidate;
     end;
   end else if CurStep = ssPostInstall then
     Installed := True;
@@ -114,7 +118,7 @@ end;
 procedure DeinitializeSetup();
 begin
   // Restore the backup if installation did not complete.
-  if (Backup <> '') and not Installed then begin
+  if (Backup <> '') and DirExists(Backup) and not Installed then begin
     DelTree(ExpandConstant('{app}'), True, True, True);
     RenameFile(Backup, ExpandConstant('{app}'));
   end;

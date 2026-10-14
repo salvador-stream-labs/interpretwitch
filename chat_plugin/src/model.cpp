@@ -16,12 +16,18 @@ struct Translator::Impl {
     fasttext::FastText language;
     std::unique_ptr<ctranslate2::Translator> translator;
     ModelProfile profile = ModelProfile::Light;
+    QString target_language;
+    std::string target_token;
     QHash<QString, Translation> cache;
     std::deque<QString> order;
 };
-Translator::Translator(const QString &directory, RunOn run_on, ModelProfile profile)
+Translator::Translator(const QString &directory, RunOn run_on, ModelProfile profile, QString target)
     : impl_(std::make_unique<Impl>()) {
+    if (!supports_target(profile, target))
+        throw std::runtime_error("Unsupported target language.");
     impl_->profile = profile;
+    impl_->target_language = target;
+    impl_->target_token = "__" + target.toStdString() + "__";
     const bool heavy = profile == ModelProfile::Heavy;
     auto device = ctranslate2::Device::CPU;
     auto compute = ctranslate2::ComputeType::INT8;
@@ -61,7 +67,8 @@ Translator::Translator(const QString &directory, RunOn run_on, ModelProfile prof
         warmup.beam_size = 1;
         warmup.max_decoding_length = 2;
         impl_->translator->translate_batch(
-            {tokens}, {heavy ? std::vector<std::string>{"__ru__"} : std::vector<std::string>{}},
+            {tokens},
+            {heavy ? std::vector<std::string>{impl_->target_token} : std::vector<std::string>{}},
             warmup);
         ctranslate2::synchronize_device(device, 0);
     }
@@ -92,9 +99,9 @@ Translation Translator::translate(const Message &message, const std::function<bo
     const auto detected = language.empty()
                               ? QString{}
                               : QString::fromStdString(language[0].second).mid(9); // __label__
-    const auto source_language =
-        translation_language(detection, detected, language.empty() ? 0.f : language[0].first,
-                             impl_->profile, language.size() > 1 ? language[1].first : 0.f);
+    const auto source_language = translation_language(
+        detection, detected, language.empty() ? 0.f : language[0].first, impl_->profile,
+        language.size() > 1 ? language[1].first : 0.f, impl_->target_language);
     if (source_language.isEmpty())
         return result;
     const bool heavy = impl_->profile == ModelProfile::Heavy;
@@ -108,11 +115,11 @@ Translation Translator::translate(const Message &message, const std::function<bo
             continue;
         }
         if (++pieces > limits::translated_portions)
-            return {message.original, false, true};
+            return {message.original, false};
         std::vector<std::string> tokens;
         impl_->source.Encode(part.text.trimmed().toStdString(), &tokens);
         if (tokens.size() > limits::input_tokens)
-            return {message.original, false, true};
+            return {message.original, false};
         tokens.push_back("</s>");
         if (heavy)
             tokens.insert(tokens.begin(), "__" + source_language.toStdString() + "__");
@@ -124,32 +131,33 @@ Translation Translator::translate(const Message &message, const std::function<bo
             return cancel();
         };
         const auto output = impl_->translator->translate_batch(
-            {tokens}, {heavy ? std::vector<std::string>{"__ru__"} : std::vector<std::string>{}},
+            {tokens},
+            {heavy ? std::vector<std::string>{impl_->target_token} : std::vector<std::string>{}},
             options);
         if (cancel())
             return {message.original};
         if (output.empty() || output[0].hypotheses.empty() ||
             output[0].hypotheses[0].size() >= limits::output_tokens)
-            return {message.original, false, true};
+            return {message.original, false};
         std::string decoded;
         auto hypothesis = output[0].hypotheses[0];
         if (heavy) {
-            if (hypothesis.empty() || hypothesis.front() != "__ru__")
-                return {message.original, false, true};
+            if (hypothesis.empty() || hypothesis.front() != impl_->target_token)
+                return {message.original, false};
             hypothesis.erase(hypothesis.begin());
             impl_->source.Decode(hypothesis, &decoded);
         } else
             impl_->target.Decode(hypothesis, &decoded);
         const auto text = QString::fromStdString(decoded).trimmed();
         if (text.isEmpty() || repetitive(text))
-            return {message.original, false, true};
+            return {message.original, false};
         if (!part.text.isEmpty() && part.text.front().isSpace())
             translated += ' ';
         translated += text;
         if (!part.text.isEmpty() && part.text.back().isSpace())
             translated += ' ';
     }
-    result = {translated.trimmed(), true, false};
+    result = {translated.trimmed(), true, source_language};
     if (impl_->order.size() >= limits::cached_translations) {
         impl_->cache.remove(impl_->order.front());
         impl_->order.pop_front();

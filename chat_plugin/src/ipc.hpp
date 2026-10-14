@@ -8,8 +8,9 @@
 
 namespace awl::chat::ipc {
 constexpr qsizetype frame_limit = limits::ipc_frame_bytes;
+constexpr int version = 2;
 inline QByteArray encode(QJsonObject value) {
-    value["v"] = 1;
+    value["v"] = version;
     auto bytes = QJsonDocument(value).toJson(QJsonDocument::Compact);
     if (bytes.size() >= frame_limit)
         throw std::runtime_error("Translation message exceeds its size limit.");
@@ -17,7 +18,7 @@ inline QByteArray encode(QJsonObject value) {
 }
 inline QJsonObject decode(const QByteArray &bytes) {
     const auto value = QJsonDocument::fromJson(bytes).object();
-    if (bytes.size() > frame_limit || value["v"].toInt() != 1 || !value["type"].isString())
+    if (bytes.size() > frame_limit || value["v"].toInt() != version || !value["type"].isString())
         throw std::runtime_error("Invalid translation worker response.");
     return value;
 }

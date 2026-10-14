@@ -26,9 +26,12 @@ int main(int argc, char **argv) {
         const auto type = command["type"].toString(), id = command["id"].toString();
         auto reply = [&](QJsonObject value) {
             value["id"] = id;
-            if (type == "prepare")
+            if (type == "prepare") {
+                value["target_language"] =
+                    mode == "wrong-target" ? QJsonValue("xx") : command["target_language"];
                 value["model_id"] =
                     mode == "wrong-model" ? QJsonValue("wrong") : command["model_id"];
+            }
             const auto bytes = ipc::encode(value);
             std::cout.write(bytes.data(), bytes.size());
             std::cout.flush();
@@ -51,6 +54,9 @@ int main(int argc, char **argv) {
                 std::cerr << std::string(1024 * 1024, 'x');
                 std::cerr.flush();
             }
+            if (mode == "status-flood")
+                for (;;)
+                    reply({{"type", "status"}, {"text", "Still loading"}});
             reply({{"type", "ready"},
                    {"ok", mode != "unavailable"},
                    {"device", command["device"]},
@@ -77,7 +83,8 @@ int main(int argc, char **argv) {
                 continue;
             }
             if (mode == "wrong-id") {
-                std::cout << "{\"v\":1,\"type\":\"result\",\"id\":\"wrong\"}\n" << std::flush;
+                std::cout << ipc::encode({{"type", "result"}, {"id", "wrong"}}).constData()
+                          << std::flush;
                 continue;
             }
             if (mode == "late")
@@ -85,7 +92,7 @@ int main(int argc, char **argv) {
             reply({{"type", "result"},
                    {"text", "Перевод"},
                    {"translated", true},
-                   {"uncertain", false}});
+                   {"source_language", mode == "bad-language" ? "<script>" : "en"}});
         }
     }
 }

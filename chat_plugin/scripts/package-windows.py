@@ -39,17 +39,14 @@ def main():
     for name in ['ctranslate2.dll', 'libiomp5md.dll', 'cudnn64_9.dll']:
         shutil.copy2(DEPS / 'bin' / name, binaries)
     shutil.copy2(DEPS / 'qt/bin/Qt6WebSockets.dll', binaries)
-    tls = binaries / 'qt-plugins/tls'
-    tls.mkdir(parents=True)
-    shutil.copy2(DEPS / 'qt/plugins/tls/qschannelbackend.dll', tls)
-    for name in ['README.md', 'ARCHITECTURE.md', 'ISOLATION.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
+    for name in ['README.md', 'ARCHITECTURE.md', 'ISOLATION.md', 'INLINE_CHAT.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
                  'dependencies.lock.json', 'dependencies-windows.lock.json']:
         shutil.copy2(PROJECT / name, data)
     with zipfile.ZipFile(data / 'source.zip', 'w', zipfile.ZIP_DEFLATED) as z:
         for p in sorted(PROJECT.rglob('*')):
             if p.is_file() and '__pycache__' not in p.parts:
                 z.write(p, str(p.relative_to(ROOT)))
-        for name in ['Install Awl Interpretwitch.command', 'README.md', 'BUILD.md', 'LICENSE', '.gitignore']:
+        for name in ['Install Interpretwitch.command', 'README.md', 'BUILD.md', 'LICENSE', '.gitignore']:
             z.write(ROOT / name, name)
         # QtWebSockets corresponding source is shipped alongside the library.
         for name in ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext']:
@@ -69,12 +66,12 @@ def main():
         raise RuntimeError(f'Unexpected helper imports: {sorted(helper_linked)}')
     # Every non-system DLL the package imports must be shipped or provided by OBS.
     obs_bin = Path(os.environ.get('AWL_OBS_DIR', r'C:\Program Files\obs-studio')) / 'bin/64bit'
-    for binary in [module, helper, binaries / 'Qt6WebSockets.dll', tls / 'qschannelbackend.dll']:
+    for binary in [module, helper, binaries / 'Qt6WebSockets.dll']:
         for name in dependents(binary):
             if name.startswith(('qt6', 'obs')) and not (binaries / name).exists() and not (obs_bin / name).exists():
                 raise RuntimeError(f'{binary.name} needs {name}, which neither the package nor OBS provides')
     version = re.search(r'project\(awl-chat VERSION (\S+)', (PROJECT / 'CMakeLists.txt').read_text()).group(1)
-    evidence = {'version': version,
+    evidence = {'product': 'Interpretwitch', 'publisher': 'Salvador Stream Labs', 'version': version,
                 'bytes': sum(p.stat().st_size for p in files),
                 'module_sha256': hashlib.sha256(module.read_bytes()).hexdigest(),
                 'helper_sha256': hashlib.sha256(helper.read_bytes()).hexdigest(),

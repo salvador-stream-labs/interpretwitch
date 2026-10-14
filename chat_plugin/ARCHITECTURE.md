@@ -1,146 +1,92 @@
-# Reviewing Awl Interpretwitch
+# Reviewing Interpretwitch
 
-This guide describes the 0.4.0 source layout. Start here to trace what executes,
-what it can access and where to check the implementation. User instructions are
-in [README.md](README.md); failure handling and its limits are in
-[ISOLATION.md](ISOLATION.md). Build prerequisites and checks are in
-[BUILD.md](../BUILD.md). Documentation is a map, not an audit
-certificate or a guarantee that native code cannot fail.
+Version 0.8.1, by Salvador Stream Labs. This source map describes executable
+behaviour; it is not an audit certificate or a guarantee against native failures.
 
 ## Follow one message
 
 ```mermaid
 flowchart LR
-    Twitch[Twitch EventSub] --> Client[twitch.cpp]
-    Client --> Parse[chat_core.cpp: validate and protect fragments]
-    Parse --> Panel[panel.cpp: route event]
-    Panel --> History[chat_list.cpp: bounded history]
-    History --> View[chat_view.cpp: selectable text]
-    Panel --> Supervisor[worker.cpp: queue and supervise]
-    Supervisor <-->|Private JSON-line pipes: ipc.hpp| Helper[helper.cpp]
-    Helper --> Files[model_files.cpp: verify or download]
-    Helper --> Engine[model.cpp: local translation]
-    Supervisor -->|Current result only| History
+    Twitch[Twitch chat in OBS browser] --> Script[inline_chat.js: visible message fragments]
+    Script <-->|Capability-protected localhost WebSocket| Bridge[inline_chat.cpp]
+    Bridge --> Settings[panel.cpp: route work]
+    Settings --> Worker[worker.cpp: bounded queue and supervision]
+    Worker <-->|Private JSON-line pipes| Helper[helper.cpp]
+    Helper --> Model[model.cpp: detect language and translate]
+    Model --> Helper
+    Worker -->|Text and source language| Bridge
+    Bridge -->|Still-current row only| Script
 ```
 
-The client, parser, panel, history/view and supervisor run inside OBS. The helper,
-model file access and inference run in a separate process. A pending translation slot and optional original appear
-immediately; a result fills the slot only if it belongs to the current work generation
-and its row still exists. Selection can defer display replacement. The helper
-receives message text and protected fragments, not account tokens or separate
-channel/user metadata. Text itself can contain names, links and other private data.
+OBS/Twitch owns authentication, chat history, original DOM, settings and moderation.
+There is no Interpretwitch OAuth, EventSub connection or duplicate chat renderer.
 
-## Source responsibilities
-
-| File | Responsibility |
+| Source | Responsibility |
 | --- | --- |
-| `src/plugin.cpp` | OBS load/unload, module paths, TLS setup and dock registration. |
-| `src/panel.cpp` | Builds controls, binds worker/Twitch callbacks, routes events and saves preferences. Construction, bindings and restored startup are separate methods. |
-| `src/twitch_setup.*` | One scrollable registration guide with all four steps, Field: Value entries and explicit browser/copy buttons. It holds a draft ID and emits save/cancel callbacks; it does not persist settings, sign in or download models. The panel persists only an explicitly saved, format-validated ID. |
-| `src/ui_text.*`, `data/locale/ru-RU.json` | English source strings and embedded Russian translations. OBS chooses the locale at startup. No global Qt translator, OS-locale override or translation-service request. The helper receives the same canonical language in its prepare command. |
-| `src/text_menu.*` | Native editing actions with localised labels, attached only to this plugin's text fields/view. Existing text selection and keyboard editing remain native Qt. |
-| `src/chat_list.*` | Memory-only message history, updates, moderation removals and retention. No network, credentials or process access. |
-| `src/chat_view.*`, `src/chat_style.hpp` | Literal text display, native selection, scrolling, translated-message borders and static dock styling. |
-| `src/twitch.*` | Device sign-in, token validation/refresh, EventSub connection and reconnect. |
-| `src/credentials.*` | OS credential-store operations. This is the only account-token persistence implementation. |
-| `src/chat_core.*` | Shared value types, incoming-event validation, protected text and bounded translation queue. |
-| `src/worker.*` | Parent process supervisor: launch, deadlines, cancellation, stale-result rejection and limited recovery. It cannot instantiate the translation engine. |
-| `src/ipc.hpp` | Versioned JSON framing and the text-only translation payload. |
-| `src/helper.cpp` | Child entry point, pipe reader, command dispatch and process restrictions. |
-| `src/model_files.*` | Validate the complete catalogue, verify cached files, stream explicit downloads and promote verified files atomically. No inference dependency. |
-| `src/model_profile.*` | Stable Light/Heavy identities, explanations, isolated cache paths and language routing. No process or download side effects. |
-| `src/model.*` | Language detection, tokenization, inference and bounded translation cache. No download, credential or UI code. |
-| `src/limits.hpp` | Shared retention, message, queue and decoding bounds. Local transport details and supervisor timing overrides stay with their owners. |
-| `src/model_download.*` | HTTPS transport. Callers own catalogue validation, file writes and hash verification. |
+| `src/plugin.cpp` | OBS lifecycle, Tools menu action and modeless settings window. Starts after OBS finishes loading. |
+| `src/panel.*` | Model/device/appearance preferences and bridge/worker callbacks. Loads the cached model after a chat page connects; explicit button permits downloads. |
+| `src/twitch_dock.*` | Finds only OBS’s `twitchChat` dock, verifies browser-panel ABI 3 and widget type, executes the bundled script. |
+| `src/inline_chat.*` | Temporary local listener, origin/capability checks, bounded requests, page/job IDs and connection cleanup. |
+| `data/inline_chat.js` | Bounded DOM observation, visible fragment extraction, presentation, scroll preservation and stale/deleted result rejection. Never reparents original Twitch elements. |
+| `src/chat_core.*`, `src/limits.hpp` | Protected text fragments, repetition guard, bounded jobs and expiry. |
+| `src/worker.*`, `src/ipc.hpp` | Separate-process supervisor, bounded pipes, generation checks, timeouts and restart policy. |
+| `src/helper.cpp`, `src/model.*` | Local fastText detection and CTranslate2 translation. Source-language metadata travels with each result and cached result. |
+| `src/model_profile.*` | Light/Heavy and target identity, language eligibility and stable cache paths. |
+| `data/languages.json` | Reviewed target allowlist, English/Russian names, compact Russian pill labels and available Light pack sizes. Model codes match the pinned Heavy vocabulary. |
+| `src/model_files.*`, `src/model_download.*` | Pinned file verification, explicit HTTPS downloads and atomic cache promotion; helper-only. |
+| `src/ui_text.*`, `data/locale/ru-RU.json` | OBS-selected English/Russian strings, also passed to the helper and browser adapter. |
+| `third_party/obs-browser/` | Unmodified, pinned upstream interface header and provenance. No second browser runtime. |
 
-## Network, files and execution
+The plugin uses Qt Core/Widgets/Network/WebSockets. Translation libraries and HTTPS
+download implementation are linked only into the helper. No credential-store or
+Twitch API client code remains. Qt TLS plugins are no longer bundled: the bridge
+uses loopback, OBS manages Twitch TLS, and the helper uses system HTTPS libraries.
 
-| Boundary | Current behaviour and review location |
-| --- | --- |
-| Twitch network | `twitch.cpp` calls `id.twitch.tv` for OAuth, `api.twitch.tv` for channel lookup/subscriptions, and `eventsub.wss.twitch.tv` for incoming events. It requests `user:read:chat`; there is no send-chat operation. |
-| Model network | `model_files.cpp` accepts initial HTTPS catalogue URLs at `huggingface.co` and `dl.fbaipublicfiles.com`. Shared transport permits HTTPS redirects, including CDN hosts. The final bytes must match the pinned size and SHA-256 before promotion. Downloads require the explicit model action; normal message translation does not send text to a remote translator. |
-| External browser | `twitch_setup.cpp` opens the fixed Twitch registration link only when clicked. `panel.cpp` opens the validated activation URL during sign-in. Chat text is inserted literally and does not trigger browser or shell execution. |
-| Clipboard | `twitch_setup.cpp` copies the fixed redirect URL only on its copy action. Native text menus and standard keyboard actions copy/paste only when requested. No background clipboard access. |
-| Settings | `settings.ini` under the OBS module configuration directory contains channel, public Client ID, remember-sign-in, display, device, model identity and connection preferences. It contains no account token or transcript. See `plugin.cpp` and `Panel::save_settings`. |
-| Account tokens | Keychain service `org.awl.chat.twitch` / account `read-only-chat` on Mac; Credential Manager target `AWL/Chat/Twitch` on Windows. Disconnect requests deletion; failure is reported. Unsupported platforms use session-only credentials. |
-| Models | Light retains the module's `models` directory; Heavy uses its `m2m100-418m-int8` subdirectory. Only one model is resident. A force-stopped download can leave an uncommitted temporary file. The engine does not load it. |
-| History and diagnostics | Chat history and translation cache live in memory. First-party code writes no transcript or telemetry. `plugin.cpp` emits fixed lifecycle/TLS messages to the OBS log; helper stderr is discarded. This is not a guarantee about OS crash reports or third-party library diagnostics. |
-| Process launch | `worker.cpp` launches the installed helper directly with the fixed `--stdio` argument. Chat is sent through bounded pipes, never a shell command. The helper runs as the same OS user: process separation is not a filesystem/network security sandbox. |
-| Installation | `scripts/install-mac.sh` stages the bundle, verifies it and backs up an existing AWL Chat bundle before replacement. Runtime code does not install or update itself. Build/packaging scripts are developer tools, not a background service. |
+## Review checks
 
-## Build boundaries and dependencies
+Seven CTest suites cover text/language routing, UI preferences, localisation,
+file verification, helper failures and the bridge. The separate offline Chromium
+fixture checks presentation, live-chat scrolling, reading history, input focus,
+selection, deletions, hidden/recycled rows, five-message history catch-up,
+a 200-message live burst and cleanup. Real-model checks exercise the same helper/bridge
+path and source-language metadata. See [BUILD.md](../BUILD.md).
 
-`CMakeLists.txt` is the authoritative production target map:
+A future shared helper can reuse the model/IPC boundaries, but is not implemented.
+The chat helper receives text parts, never audio or browser/account credentials.
+Stable model IDs and cache roots remain independent of presentation and branding.
 
-- `awl-chat` → UI, history/view, Twitch/credentials, shared protocol and supervisor.
-- `awl-chat-worker` → shared protocol, model files and inference.
-- `awl-chat-model-files` → QtCore and the shared HTTPS transport (system libcurl
-  on Mac, WinHTTP on Windows).
-- `awl-chat-model` → CTranslate2, SentencePiece and fastText. Their headers are
-  private to this target; none is linked into the OBS module.
-- `awl-chat-text` → QtCore and the embedded Russian catalogue. Both processes use
-  this small library. `ui_error` shows known messages in the chosen language and
-  substitutes a localised fallback for unknown library diagnostics.
+## 0.8.0 review
 
-The dock uses OBS's matching Qt libraries, with the additional WebSockets and TLS
-components staged by `scripts/package.py`. Dependency versions, download sizes and
-hashes are in `dependencies.lock.json`; model sources and hashes are separately
-listed in `data/models.lock.json` and `data/models-heavy.lock.json`. Licences and model-conversion provenance are in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Dependencies are not hidden by the
-small size of our own source: their native implementations also need review.
+The review covered the first-party runtime, browser adapter, tests, build/package
+and installation scripts, and the pinned dependency boundaries. Third-party
+library implementations were not independently audited line by line. The old
+standalone chat renderer/authentication code is absent from the source/target graph.
+An unused result flag and unused Qt automatic meta-object generation were removed;
+the remaining code uses small concrete components, not a generic plugin framework.
 
-The Mac build currently extracts the CTranslate2 dylib from a pinned upstream
-wheel; it does not build that library from our bundled source archive. A matching
-source archive and checksums improve inspectability, but do not establish a
-reproducible build or independently prove source-to-binary equivalence.
+The supervisor publishes explicit Stopped/Preparing/Ready/Recovering/Failed events.
+The settings window keeps that state instead of independent loading/ready booleans.
+The browser bridge does not know about the worker's implementation: it receives
+readiness plus localized status/detail text. The browser derives working/last-reply
+display from its existing pending/result flow. No independent health service is added.
 
-`tests/CMakeLists.txt` owns all tests, fault fixtures and diagnostic tools.
-`BUILD_TESTING=OFF` excludes them from a production-only build; release validation
-must still use a build with tests enabled. Test executables are never installed.
-The CMake project version supplies the module log, bundle metadata and package
-receipt. There is no separately maintained version string in executable code.
+Failure checks cover immediate revocation of readiness, no replay on recovery,
+bounded reconnects, helper output floods, guarded browser-interface exceptions,
+page-script cleanup, and the Windows installer rollback precondition. Details and
+remaining native/platform limits are in [ISOLATION.md](ISOLATION.md).
 
-## Review and validation workflow
+Target selection travels in the helper prepare request and is echoed/validated in
+its ready reply. A fresh helper/model instance scopes cached translations to that
+target. Heavy targets share one model ID/directory and use the selected decoder
+prefix; Light IDs/directories identify the English-to-target pair. Catalogue
+identity and target are validated before filesystem access. New Light packs are
+fixed manifests, not arbitrary model URLs or executable code from a model hub.
+Language names were generated from JavaScript Intl/CLDR; compact Russian labels
+are project UI abbreviations, not a separate Russian ISO standard.
 
-1. Read the entry point and CMake links, then follow the message path above.
-2. Review side effects in Twitch, credentials, model files, shared transport and
-   process launch. Check pinned dependencies and their licences separately.
-3. Build and run the existing checks using `scripts/build-mac.sh` with the prepared
-   matching toolchain. It stages a development package but does not install it.
-4. Review `package.json` beside the staged bundle, its signatures and bundled
-   `Contents/Resources/source.zip`. Source availability is distinct from a review
-   of the compiled third-party components or a trusted publisher signature.
-
-The six CTest suites cover protocol/authentication, native selection/history,
-model verification, subprocess failures, locale coverage and setup/localised UI.
-The real-model device check separately
-exercises CPU inference, device switching and fallback through the helper.
-Production and test C++ use `.clang-format`; prefer ordinary statements and
-explicit ownership over compressed lines or new general-purpose frameworks.
-
-Windows/NVIDIA execution and live OBS/gameplay acceptance remain unvalidated.
-
-## Resource choice and pending messages
-
-The selected allowlisted model identity travels in `prepare` and must match the
-helper's `ready` reply. Light is OPUS-MT; Heavy is M2M100 with source language tokens
-and a Russian target prefix. Both use the same inference runtime, language detector
-and download verifier, with separate file sets and size ceilings (256/512 MiB).
-No model files are bundled. The original Light catalogue/pins remain unchanged.
-
-`ChatList::Row::pending` controls a fixed text placeholder. `ChatView` paints an
-arc into its reserved space; one 250 ms timer repaints only visible arc regions.
-The timer stops with no visible pending messages, on hide, or after completion.
-It never modifies document text/layout. Selection continues to defer replacement
-until released; the spinner itself stops immediately even on a selected message.
-
-`Worker::discarded` resolves pending rows when a queue entry overflows/expires,
-a generation is cancelled, preparation fails or the helper fails. Completed,
-unsupported and uncertain results also clear pending state. Removed history never
-reappears from a late reply. Chat text remains literal and selectable.
-
-Heavy uses one CPU inference thread because sparse incoming chat can wait; Light
-retains two. The helper cache is per model instance and disappears on a switch.
-The helper is private to this plugin. The text-only IPC boundary keeps inference
-separate from Twitch and the dock, allowing future reuse without coupling the
-current plugin to an audio project or background service.
+The detector admits a top score of at least .60, a score of at least .50 with a
+3× lead over the runner-up, or a score of at least .40 with a 10× lead. These are
+routing thresholds, not calibrated probabilities. This keeps short phrases such
+as “On the left side of the road” from being silently skipped just below .60.
+Single-word Latin strings (except supported greetings), unsupported sources,
+already-target-language messages and ambiguous results still remain unchanged.

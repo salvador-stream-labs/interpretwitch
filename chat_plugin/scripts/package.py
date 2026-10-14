@@ -34,17 +34,13 @@ def main():
     subprocess.run(['install_name_tool', '-change', '@rpath/QtWebSockets.framework/Versions/A/QtWebSockets',
                     '@rpath/libawl-qtwebsockets.dylib', str(STAGE / 'Contents/MacOS/awl-chat')], check=True)
     resources = STAGE / 'Contents/Resources'
-    tls_directory = STAGE / 'Contents/PlugIns/tls'
-    tls_directory.mkdir(parents=True)
-    tls = tls_directory / 'libqsecuretransportbackend.dylib'
-    shutil.copy2(DEPS / 'qt/plugins/tls/libqsecuretransportbackend.dylib', tls)
-    for name in ['README.md', 'ARCHITECTURE.md', 'ISOLATION.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'dependencies.lock.json']:
+    for name in ['README.md', 'ARCHITECTURE.md', 'ISOLATION.md', 'INLINE_CHAT.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'dependencies.lock.json']:
         shutil.copy2(PROJECT / name, resources)
     with zipfile.ZipFile(resources / 'source.zip', 'w', zipfile.ZIP_DEFLATED) as z:
         for p in sorted(PROJECT.rglob('*')):
             if p.is_file() and '__pycache__' not in p.parts:
                 z.write(p, str(p.relative_to(ROOT)))
-        for name in ['Install Awl Interpretwitch.command', 'README.md', 'BUILD.md', 'LICENSE', '.gitignore']:
+        for name in ['Install Interpretwitch.command', 'README.md', 'BUILD.md', 'LICENSE', '.gitignore']:
             z.write(ROOT / name, name)
         # QtWebSockets corresponding source is shipped alongside the library.
         for name in ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext', 'simde']:
@@ -52,7 +48,7 @@ def main():
             z.write(p, 'dependency-sources/' + name + '.tar.gz')
     shutil.copy2(DEPS / 'qt/lib/QtWebSockets.framework/Versions/A/Resources/PrivacyInfo.xcprivacy', resources / 'QtWebSockets-PrivacyInfo.xcprivacy')
     helper = STAGE / 'Contents/MacOS/awl-chat-worker'
-    for binary in [frameworks / 'libawl-ctranslate2.dylib', ws, tls, helper]:
+    for binary in [frameworks / 'libawl-ctranslate2.dylib', ws, helper]:
         subprocess.run(['lipo', str(binary), '-verify_arch', 'arm64'], check=True)
         subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(binary)], check=True)
     subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(STAGE)], check=True)
@@ -70,7 +66,7 @@ def main():
            for line in helper_load.splitlines()):
         raise RuntimeError('Helper still depends on developer runtime paths')
     version = plistlib.loads((STAGE / 'Contents/Info.plist').read_bytes())['CFBundleShortVersionString']
-    evidence = {'version': version, 'bytes': sum(p.stat().st_size for p in files),
+    evidence = {'product': 'Interpretwitch', 'publisher': 'Salvador Stream Labs', 'version': version, 'bytes': sum(p.stat().st_size for p in files),
                 'module_sha256': hashlib.sha256((STAGE / 'Contents/MacOS/awl-chat').read_bytes()).hexdigest(),
                 'helper_sha256': hashlib.sha256(helper.read_bytes()).hexdigest(),
                 'source_sha256': hashlib.sha256((resources / 'source.zip').read_bytes()).hexdigest(),

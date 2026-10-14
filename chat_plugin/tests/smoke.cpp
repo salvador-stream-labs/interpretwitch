@@ -12,27 +12,31 @@
 using namespace awl::chat;
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
-    if (argc != 3 && argc != 4) {
-        std::cerr << "usage: awl-chat-smoke MANIFEST MODEL_DIRECTORY [MODEL_ID]\n";
+    if (argc < 3 || argc > 5) {
+        std::cerr
+            << "usage: awl-chat-smoke MANIFEST MODEL_DIRECTORY [MODEL_ID [TARGET_LANGUAGE]]\n";
         return 2;
     }
     try {
-        const auto profile = argc == 4 ? model_profile(argv[3]) : ModelProfile::Light;
+        const auto profile = argc >= 4 ? model_profile(argv[3]) : ModelProfile::Light;
         if (!profile)
             throw std::runtime_error("Unknown model ID");
+        const QString target = argc == 5 ? QString::fromUtf8(argv[4]) : "ru";
         std::atomic<bool> cancel{false};
-        if (!prepare_models(argv[1], argv[2], false, cancel, [](auto) {}, {}, *profile))
+        if (!prepare_models(argv[1], argv[2], false, cancel, [](auto) {}, {}, *profile, target))
             throw std::runtime_error("Model verification failed");
         QElapsedTimer timer;
         timer.start();
-        Translator translator(argv[2], RunOn::CPU, *profile);
+        Translator translator(argv[2], RunOn::CPU, *profile, target);
         QJsonObject report{{"device", "CPU INT8"},
-                           {"model_id", model_id(*profile)},
+                           {"model_id", model_id(*profile, target)},
+                           {"target_language", target},
                            {"threads", *profile == ModelProfile::Heavy ? 1 : 2},
                            {"load_ms", double(timer.elapsed())}};
         QJsonArray rows;
         for (const auto &text : QStringList{
-                 "Hello everyone!", "Please move to the left and wait for the tank.",
+                 "Hello everyone!", "On the left side of the road", "I the left side of the road",
+                 "move to the left", "Please move to the left and wait for the tank.",
                  "Do not pull the boss yet.", "We have 15 seconds before the next phase.",
                  "Thank you @alice Kappa", "Привет, как дела?", "Bonjour tout le monde",
                  "hola amigos como estan", "KEKW", "Visit https://example.com after the stream",
@@ -53,7 +57,7 @@ int main(int argc, char **argv) {
             QJsonObject row{{"input", text},
                             {"output", value.text},
                             {"translated", value.translated},
-                            {"uncertain", value.uncertain},
+                            {"source_language", value.source_language},
                             {"ms", double(timer.nsecsElapsed()) / 1e6}};
 #ifndef _WIN32
             struct rusage after{};
@@ -65,13 +69,22 @@ int main(int argc, char **argv) {
                 ms(after.ru_utime) + ms(after.ru_stime) - ms(before.ru_utime) - ms(before.ru_stime);
 #endif
             rows.append(row);
-            if (text == "Hello everyone!" && !value.translated)
+            if (text == "Hello everyone!" && value.translated != (target != "en"))
                 throw std::runtime_error("English translation failed");
+            if ((text == "On the left side of the road" || text == "I the left side of the road" ||
+                 text == "move to the left") &&
+                value.translated != (target != "en"))
+                throw std::runtime_error("Short English chat regression");
             if (*profile == ModelProfile::Heavy &&
-                (text.startsWith("Bonjour") || text.startsWith("Bitte")) && !value.translated)
+                ((text.startsWith("Bonjour") && target != "fr") ||
+                 (text.startsWith("Bitte") && target != "de")) &&
+                !value.translated)
                 throw std::runtime_error("Multilingual translation failed");
-            if (text.startsWith("Привет") && value.translated)
+            if (text.startsWith("Привет") && (target == "ru" || *profile == ModelProfile::Light) &&
+                value.translated)
                 throw std::runtime_error("Russian was retranslated");
+            if (value.translated && value.source_language == target)
+                throw std::runtime_error("Target language was retranslated");
             if (text == "KEKW" && value.text != text)
                 throw std::runtime_error("Emote was changed");
             if (text.contains("@alice") &&

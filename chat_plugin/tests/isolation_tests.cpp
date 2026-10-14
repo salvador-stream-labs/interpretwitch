@@ -49,12 +49,15 @@ int main(int argc, char **argv) {
             ++ticks;
         });
         heartbeat.start();
-        for (const auto &mode : QStringList{"unavailable", "wrong-model"}) {
+        for (const auto &mode : QStringList{"unavailable", "wrong-model", "wrong-target"}) {
             QTemporaryDir cache;
             bool stopped = false;
             QStringList discarded;
             Worker worker(mode, cache.path(), nullptr, fixture, limits);
-            worker.ready = [&](bool good, RunOn, QString) {
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 check(!good, "Unavailable or mismatched model declared ready");
                 stopped = true;
             };
@@ -68,17 +71,38 @@ int main(int argc, char **argv) {
             });
             check(discarded.contains("during-prepare"), "Failed preparation left a pending job");
         }
-        for (const auto &mode :
-             QStringList{"crash-once", "hang", "oversize", "bad-json", "wrong-id"}) {
+        {
+            QTemporaryDir cache;
+            QVector<Worker::State> states;
+            Worker worker("status-flood", cache.path(), nullptr, fixture, limits);
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                states << state;
+            };
+            const auto before = ticks;
+            worker.prepare(false);
+            wait_for([&] {
+                return states.contains(Worker::State::Failed);
+            });
+            check(starts(cache.path()) == 2 && states.contains(Worker::State::Recovering) &&
+                      !states.contains(Worker::State::Ready) && ticks > before,
+                  "Valid-looking status flood escaped bounded recovery or blocked the event loop");
+        }
+        for (const auto &mode : QStringList{"crash-once", "hang", "oversize", "bad-json",
+                                            "bad-language", "wrong-id"}) {
             QTemporaryDir cache;
             int loaded = 0, failed = 0, translated = 0;
             QStringList discarded;
             QString status;
+            QVector<Worker::State> states;
             Worker worker(mode, cache.path(), nullptr, fixture, limits);
             worker.status = [&](QString value) {
                 status = value;
             };
-            worker.ready = [&](bool good, RunOn, QString) {
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                states << state;
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 if (good)
                     ++loaded;
                 else
@@ -106,6 +130,9 @@ int main(int argc, char **argv) {
             check(discarded.contains("message") && discarded.contains("queued"),
                   "Worker failure left active or queued messages pending");
             check(ticks > before, "Parent event loop stopped during worker recovery");
+            check(states == QVector<Worker::State>{Worker::State::Preparing, Worker::State::Ready,
+                                                   Worker::State::Recovering, Worker::State::Ready},
+                  "Recovery did not revoke readiness before the new helper was ready");
             worker.offer(sample("after-restart"));
             if (mode == "crash-once")
                 wait_for([&] {
@@ -125,7 +152,10 @@ int main(int argc, char **argv) {
             QString fallback;
             RunOn actual = RunOn::GPU;
             Worker worker("crash-always", cache.path(), nullptr, fixture, limits);
-            worker.ready = [&](bool good, RunOn device, QString reason) {
+            worker.state_changed = [&](Worker::State state, RunOn device, QString reason) {
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 if (good) {
                     ++loaded;
                     actual = device;
@@ -156,7 +186,10 @@ int main(int argc, char **argv) {
             worker.discarded = [&](QString id) {
                 discarded << id;
             };
-            worker.ready = [&](bool good, RunOn, QString) {
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 if (good)
                     ++loaded;
             };
@@ -182,7 +215,10 @@ int main(int argc, char **argv) {
             QTemporaryDir cache;
             bool stopped = false;
             Worker worker("load-hang", cache.path(), nullptr, fixture, limits);
-            worker.ready = [&](bool good, RunOn, QString) {
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 stopped = !good;
             };
             worker.prepare(true);
@@ -215,7 +251,10 @@ int main(int argc, char **argv) {
             QTemporaryDir cache;
             bool stopped = false;
             Worker worker("load-hang", cache.path(), nullptr, fixture, {150, 150, 300, 10});
-            worker.ready = [&](bool good, RunOn, QString) {
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 stopped = !good;
             };
             worker.prepare(false);
@@ -229,7 +268,10 @@ int main(int argc, char **argv) {
             QTemporaryDir cache;
             bool loaded = false;
             Worker worker("stderr", cache.path(), nullptr, fixture, limits);
-            worker.ready = [&](bool good, RunOn, QString) {
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 loaded = good;
             };
             worker.prepare(false);
@@ -242,7 +284,10 @@ int main(int argc, char **argv) {
         {
             bool stopped = false;
             Worker worker("unused", "unused", nullptr, actual_helper + ".missing", limits);
-            worker.ready = [&](bool good, RunOn, QString) {
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 stopped = !good;
             };
             worker.prepare(false);
@@ -263,7 +308,10 @@ int main(int argc, char **argv) {
                   "Invalid helper permissions");
             bool stopped = false, changed = false;
             Worker worker("unused", directory.path(), nullptr, path, limits);
-            worker.ready = [&](bool good, RunOn, QString) {
+            worker.state_changed = [&](Worker::State state, RunOn, QString) {
+                if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                    return;
+                const bool good = state == Worker::State::Ready;
                 stopped = !good;
             };
             QObject::connect(worker.findChild<QProcess *>(), &QProcess::stateChanged, &worker,
@@ -281,42 +329,6 @@ int main(int argc, char **argv) {
         }
 #endif
         // The production helper monitors EOF on a separate reader thread.
-        {
-            QTemporaryDir cache;
-            Panel panel("crash-always", cache.path(), cache.filePath("settings.ini"), nullptr, true,
-                        fixture);
-            QPushButton *start = nullptr;
-            for (auto button : panel.findChildren<QPushButton *>())
-                if (button->text() == "Download model")
-                    start = button;
-            check(start, "Missing model start control");
-            const auto model_status = panel.findChild<QLabel *>("awlChatModelStatus");
-            start->click();
-            wait_for([&] {
-                return model_status->text().startsWith("Local translation");
-            });
-            Event message;
-            message.kind = EventKind::Message;
-            message.message = sample("first");
-            panel.receive(message);
-            wait_for([&] {
-                return starts(cache.path()) == 2 &&
-                       model_status->text().startsWith("Local translation");
-            });
-            message.message = sample("second");
-            panel.receive(message);
-            wait_for([&] {
-                return model_status->text().contains("Chat remains available");
-            });
-            message.message = sample("after-failure");
-            panel.receive(message);
-            const auto view = panel.findChild<ChatView *>();
-            check(view && view->model()->rows.size() == 3 &&
-                      view->toPlainText().contains("Hello everyone!"),
-                  "Dock lost history or stopped displaying original chat after helper failures");
-            for (const auto &row : view->model()->rows)
-                check(!row.pending, "Dock left failed translation pending");
-        }
         QProcess helper;
         helper.setStandardErrorFile(QProcess::nullDevice());
         helper.start(actual_helper, {"--stdio"});

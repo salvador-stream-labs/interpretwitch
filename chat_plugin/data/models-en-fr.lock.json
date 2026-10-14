@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "model_id": "opus-mt-en-fr-int8",
+  "model": "OPUS-MT en → fr, INT8",
+  "source_language": "en",
+  "target_language": "fr",
+  "origin": "Helsinki-NLP/opus-mt-en-fr",
+  "conversion": "craftwise/ct2-opus-mt-en-fr-int8",
+  "revision": "1bd14ddf7b73d0d5ef2dbe4982e2cfdadec9c0f2",
+  "files": [
+    {
+      "filename": "lid.176.ftz",
+      "size": 938013,
+      "sha256": "8f3472cfe8738a7b6099e8e999c3cbfae0dcd15696aac7d7738a8039db603e83",
+      "url": "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"
+    },
+    {
+      "filename": "config.json",
+      "size": 223,
+      "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af",
+      "url": "https://huggingface.co/craftwise/ct2-opus-mt-en-fr-int8/resolve/1bd14ddf7b73d0d5ef2dbe4982e2cfdadec9c0f2/config.json"
+    },
+    {
+      "filename": "model.bin",
+      "size": 76714434,
+      "sha256": "3714b6de0ccd7067adccd76874d2b15aa60918738caaec5692b8af4bb00de597",
+      "url": "https://huggingface.co/craftwise/ct2-opus-mt-en-fr-int8/resolve/1bd14ddf7b73d0d5ef2dbe4982e2cfdadec9c0f2/model.bin"
+    },
+    {
+      "filename": "shared_vocabulary.json",
+      "size": 1052697,
+      "sha256": "a157eb51a42817dd1ae4bc46cecf66e591ab32641df936da292bd09f2728631b",
+      "url": "https://huggingface.co/craftwise/ct2-opus-mt-en-fr-int8/resolve/1bd14ddf7b73d0d5ef2dbe4982e2cfdadec9c0f2/shared_vocabulary.json"
+    },
+    {
+      "filename": "source.spm",
+      "size": 778395,
+      "sha256": "173e9f493a668fe396d599e28d414a201193094e6ffd7a4678e5aab0f6d3d838",
+      "url": "https://huggingface.co/craftwise/ct2-opus-mt-en-fr-int8/resolve/1bd14ddf7b73d0d5ef2dbe4982e2cfdadec9c0f2/source.spm"
+    },
+    {
+      "filename": "target.spm",
+      "size": 802397,
+      "sha256": "78d0e717c77053f1c4b856d8661d9cb87c64f083a35418c087b9146300e4f585",
+      "url": "https://huggingface.co/craftwise/ct2-opus-mt-en-fr-int8/resolve/1bd14ddf7b73d0d5ef2dbe4982e2cfdadec9c0f2/target.spm"
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QTemporaryDir>
 #include <QJsonArray>
@@ -174,6 +175,16 @@ int main(int argc, char **argv) {
         tokenizer["filename"] = "sentencepiece.bpe.model";
         heavy_files[4] = tokenizer;
         const auto heavy_manifest = temp.filePath("models-heavy.lock.json");
+        bool wrong_target_rejected = false;
+        try {
+            prepare_models(
+                manifest, temp.filePath("wrong-target-cache"), true, cancel, [](auto) {}, fetch,
+                ModelProfile::Light, "fr");
+        } catch (const std::exception &) {
+            wrong_target_rejected = true;
+        }
+        check(wrong_target_rejected && !QFileInfo::exists(temp.filePath("wrong-target-cache")),
+              "Wrong target catalogue touched the filesystem");
         const auto heavy_cache = profile_directory(cache, ModelProfile::Heavy);
         auto write_heavy = [&](QJsonArray assets, QString id = "m2m100-418m-int8") {
             QFile file(heavy_manifest);

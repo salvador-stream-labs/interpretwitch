@@ -53,7 +53,10 @@ int main(int argc, char **argv) {
         QVector<Translation> translations;
         QStringList discarded;
         Worker worker(argv[1], argv[2], nullptr, helper);
-        worker.ready = [&](bool ready, RunOn device, QString fallback) {
+        worker.state_changed = [&](Worker::State state, RunOn device, QString fallback) {
+            if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                return;
+            const bool ready = state == Worker::State::Ready;
             states.push_back({ready, device, fallback});
         };
         worker.result = [&](Job job, Translation value) {
@@ -65,7 +68,6 @@ int main(int argc, char **argv) {
         };
         Message message;
         message.id = "cpu";
-        message.name = "Example";
         message.original = "Hello everyone!";
         message.parts = protect_text(message.original);
         worker.prepare(false, RunOn::CPU);
@@ -170,7 +172,10 @@ int main(int argc, char **argv) {
         }
         bool missing_done = false, missing_ready = true;
         Worker missing("missing-model-catalogue", argv[2], nullptr, helper);
-        missing.ready = [&](bool ready, RunOn, QString) {
+        missing.state_changed = [&](Worker::State state, RunOn, QString) {
+            if (state == Worker::State::Preparing || state == Worker::State::Recovering)
+                return;
+            const bool ready = state == Worker::State::Ready;
             missing_ready = ready;
             missing_done = true;
         };

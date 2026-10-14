@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 #include <QJsonObject>
-#include <QSet>
 #include <QString>
 #include <QVector>
 #include <deque>
@@ -14,50 +13,19 @@ struct Part {
     bool protected_text = false;
 };
 struct Message {
-    QString id, user_id, name, original;
+    QString id, original;
     QVector<Part> parts;
-    QString color;
 };
 struct Translation {
     QString text;
     bool translated = false;
-    bool uncertain = false;
+    QString source_language;
 };
 enum class RunOn { CPU, GPU };
 inline QString run_on_name(RunOn device) {
     return device == RunOn::GPU ? "GPU" : "CPU";
 }
-enum class EventKind {
-    Ignore,
-    Welcome,
-    Keepalive,
-    Reconnect,
-    Message,
-    Delete,
-    ClearUser,
-    Clear,
-    Revoked
-};
-struct Event {
-    EventKind kind = EventKind::Ignore;
-    Message message;
-    QString id, user_id, session, reconnect_url, reason;
-    int timeout = 30;
-};
-// Per-connection bounds. Twitch may redeliver events across a reconnect.
-class Protocol {
-  public:
-    Event accept(const QByteArray &json, const QString &channel_id);
-    void reset();
-
-  private:
-    QSet<QString> seen_;
-    std::deque<QString> order_;
-};
 QVector<Part> protect_text(const QString &text);
-QString normal_channel(QString text);
-bool valid_client_id(const QString &text);
-bool safe_reconnect_url(const QString &url);
 bool repetitive(const QString &text);
 struct Job {
     Message message;

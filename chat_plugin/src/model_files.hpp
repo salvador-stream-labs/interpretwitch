@@ -10,5 +10,5 @@ using Status = std::function<void(QString)>;
 using Fetch = awl::ModelFetch;
 bool prepare_models(const QString &manifest, const QString &directory, bool download,
                     const std::atomic<bool> &cancel, const Status &status, const Fetch &fetch = {},
-                    ModelProfile profile = ModelProfile::Light);
+                    ModelProfile profile = ModelProfile::Light, const QString &target = "ru");
 } // namespace awl::chat

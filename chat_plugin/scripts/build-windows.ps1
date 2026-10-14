@@ -74,5 +74,5 @@ finally { $env:Path = $savedPath; Remove-Item env:QT_PLUGIN_PATH }
 $version = (Get-Content .phase0\packages\obs-chat-win\package.json -Raw | ConvertFrom-Json).version
 Invoke-Checked $iscc /Q "/DStage=$root\.phase0\packages\obs-chat-win\awl-chat" `
     "/DOutputDir=$root\.phase0\packages\obs-chat-win" "/DAppVersion=$version" chat_plugin\scripts\installer-windows.iss
-Write-Host "Installer: $root\.phase0\packages\obs-chat-win\AwlInterpretwitch-$version-windows-x64-setup.exe"
+Write-Host "Installer: $root\.phase0\packages\obs-chat-win\Interpretwitch-$version-windows-x64-setup.exe"
 Write-Host 'Quit OBS, then run the installer.'
