@@ -88,12 +88,13 @@ Translation Translator::translate(const Message &message, const std::function<bo
         return result;
     std::istringstream input(detection.toStdString());
     std::vector<std::pair<fasttext::real, std::string>> language;
-    impl_->language.predictLine(input, language, 1, 0.0);
+    impl_->language.predictLine(input, language, 2, 0.0);
     const auto detected = language.empty()
                               ? QString{}
                               : QString::fromStdString(language[0].second).mid(9); // __label__
-    const auto source_language = translation_language(
-        detection, detected, language.empty() ? 0.f : language[0].first, impl_->profile);
+    const auto source_language =
+        translation_language(detection, detected, language.empty() ? 0.f : language[0].first,
+                             impl_->profile, language.size() > 1 ? language[1].first : 0.f);
     if (source_language.isEmpty())
         return result;
     const bool heavy = impl_->profile == ModelProfile::Heavy;

@@ -124,7 +124,19 @@ int main(int argc, char **argv) {
                       translation_language("unknown words", "xx", .99f, profile).isEmpty() &&
                       translation_language("KEKW", "en", .99f, profile).isEmpty(),
                   "Russian, uncertain, unsupported or emote text translated");
+            // Scores measured with lid.176.ftz for these messages.
+            check(translation_language("Every now and then I fall apart", "en", .477f, profile,
+                                       .031f) == "en" &&
+                      translation_language("omg so close", "en", .531f, profile, .038f) == "en",
+                  "Decisive low-score English lead rejected");
+            check(translation_language("close call words", "en", .45f, profile, .1f).isEmpty() &&
+                      translation_language("faint lead words", "en", .35f, profile, .001f)
+                          .isEmpty() &&
+                      translation_language("lets go team", "it", .402f, profile, .326f).isEmpty(),
+                  "Narrow or weak detector lead translated");
         }
+        check(translation_language("hola a todos", "pt", .54f, ModelProfile::Heavy, .43f).isEmpty(),
+              "Ambiguous Portuguese/Spanish message translated");
         check(translation_language("Bonjour tout le monde", "fr", .99f, ModelProfile::Light)
                       .isEmpty() &&
                   translation_language("Bonjour tout le monde", "fr", .99f, ModelProfile::Heavy) ==

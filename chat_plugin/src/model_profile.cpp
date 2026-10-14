@@ -42,7 +42,7 @@ QString profile_directory(const QString &light_directory, ModelProfile profile) 
                                           : light_directory;
 }
 QString translation_language(const QString &text, const QString &detected, float confidence,
-                             ModelProfile profile) {
+                             ModelProfile profile, float runner_up) {
     if (text.isEmpty())
         return {};
     static const QRegularExpression cyrillic("[\\x{0400}-\\x{052F}]");
@@ -65,7 +65,10 @@ QString translation_language(const QString &text, const QString &detected, float
                 .split(' ');
         return QSet<QString>(codes.begin(), codes.end());
     }();
-    if (!std::isfinite(confidence) || confidence < .60f || detected == "ru" ||
+    // The compressed detector often scores clear, short English below 60% while
+    // ranking every other language far lower. Also accept a decisive lead.
+    const bool decisive = confidence >= .60f || (confidence >= .40f && confidence >= 10 * runner_up);
+    if (!std::isfinite(confidence) || !std::isfinite(runner_up) || !decisive || detected == "ru" ||
         !supported.contains(detected) || (profile == ModelProfile::Light && detected != "en"))
         return {};
     // A single Latin word is often a username, emote or ambiguous abbreviation.
