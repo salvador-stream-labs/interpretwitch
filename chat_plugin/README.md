@@ -48,6 +48,12 @@ animated health spinner. If translation fails, originals stay available. Use
 **Reconnect to chat** to retry; downloaded models are reused. The indicator is
 not a guarantee about translation accuracy or the health of OBS itself.
 
+For troubleshooting, OBS's log (**Help → Log Files**) contains `[Interpretwitch]`
+lines for bridge connections and disconnections, why the Twitch page stopped
+translating (an unanswered request, a layout error or an unreadable reply), worker
+starts, exits and failures, model state, slow translations and busy-chat skips.
+These lines never include chat text, translations, usernames or the bridge token.
+
 Changing target clears old translations, queued work and the previous helper cache.
 Only one model is loaded at a time. Heavy reuses the same files for every target;
 Light pairs have separate download/cache directories and remain cached for reuse.

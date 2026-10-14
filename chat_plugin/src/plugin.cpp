@@ -2,6 +2,7 @@
 #include "panel.hpp"
 #include "ui_text.hpp"
 #include "twitch_dock.hpp"
+#include "diagnostics.hpp"
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <QPointer>
@@ -48,6 +49,12 @@ MODULE_EXPORT void obs_module_set_locale(const char *locale) {
 }
 MODULE_EXPORT bool obs_module_load() {
     obs_module_set_locale(obs_get_locale());
+    awl::chat::set_log_sink([](awl::chat::LogLevel level, const QString &event) {
+        blog(level == awl::chat::LogLevel::Error     ? LOG_ERROR
+             : level == awl::chat::LogLevel::Warning ? LOG_WARNING
+                                                     : LOG_INFO,
+             "[Interpretwitch] %s", qUtf8Printable(event));
+    });
     return true;
 }
 MODULE_EXPORT void obs_module_post_load() {
@@ -112,4 +119,5 @@ MODULE_EXPORT void obs_module_unload() {
     }
     delete settings_action;
     delete panel;
+    awl::chat::set_log_sink({});
 }

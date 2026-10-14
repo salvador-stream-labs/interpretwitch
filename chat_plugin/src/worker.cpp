@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui_text.hpp"
+#include "diagnostics.hpp"
 #include "limits.hpp"
 #include "worker.hpp"
 #include "ipc.hpp"
@@ -48,6 +49,12 @@ Worker::Worker(QString manifest, QString directory, QObject *parent, QString hel
 #endif
     connect(&restart_, &QTimer::timeout, this, &Worker::launch);
     connect(&deadline_, &QTimer::timeout, this, [this] {
+        log_event(LogLevel::Warning,
+                  QString("Translation worker missed its deadline while %1")
+                      .arg(phase_ == Phase::Preparing     ? "preparing the model"
+                           : phase_ == Phase::Translating ? "translating"
+                           : phase_ == Phase::Clearing    ? "clearing its cache"
+                                                          : "idle"));
         fail(ui_text("Translation worker stopped responding."));
     });
     connect(&process_, &QProcess::started, this, [this] {
@@ -55,6 +62,8 @@ Worker::Worker(QString manifest, QString directory, QObject *parent, QString hel
             process_.kill();
             return;
         }
+        log_event(LogLevel::Info,
+                  QString("Translation worker started (process %1)").arg(process_.processId()));
         send({{"type", "prepare"},
               {"manifest",
                QFileInfo(profile_manifest(manifest_, profile_, target_)).absoluteFilePath()},
@@ -79,21 +88,29 @@ Worker::Worker(QString manifest, QString directory, QObject *parent, QString hel
             }
             return;
         }
+        if (error != QProcess::Crashed)
+            log_event(LogLevel::Warning,
+                      "Translation worker process error: " + process_.errorString());
         if (error == QProcess::FailedToStart)
             fail(ui_text("Translation worker could not start. Reinstall Interpretwitch."), false);
         else if (error == QProcess::ReadError || error == QProcess::WriteError)
             fail(ui_text("Translation worker connection failed."));
         // Crashed is followed by finished; handle that once below.
     });
-    connect(&process_, &QProcess::finished, this, [this](int, QProcess::ExitStatus) {
+    connect(&process_, &QProcess::finished, this, [this](int code, QProcess::ExitStatus exit) {
         deadline_.stop();
         input_.clear();
         if (stopping_) {
             stopping_ = false;
             if (wanted_)
                 restart_.start(failures_ ? limits_.restart_ms : 0);
-        } else if (wanted_)
+        } else if (wanted_) {
+            log_event(LogLevel::Warning,
+                      QString("Translation worker exited unexpectedly (%1, exit code 0x%2)")
+                          .arg(exit == QProcess::CrashExit ? "crashed" : "normal exit")
+                          .arg(quint32(code), 0, 16));
             fail(ui_text("Translation worker exited unexpectedly."));
+        }
     });
 }
 
@@ -180,6 +197,10 @@ void Worker::launch() {
             path += ";" + QDir::toNativeSeparators(QDir(inherited.value(name)).filePath("bin"));
     environment.insert("PATH", path + ";" + environment.value("PATH"));
 #endif
+    log_event(LogLevel::Info, QString("Starting translation worker: %1 → %2 on %3%4")
+                                  .arg(model_id(profile_, target_), target_,
+                                       QString(launch_device_ == RunOn::GPU ? "GPU" : "CPU"),
+                                       QString(download_ ? " (download allowed)" : "")));
     process_.setProcessEnvironment(environment);
     process_.setWorkingDirectory(helper.absolutePath());
     phase_ = Phase::Preparing;
@@ -219,6 +240,11 @@ void Worker::read() {
                 const auto line = std::exchange(input_, {});
                 try {
                     receive(ipc::decode(line));
+                } catch (const std::exception &error) {
+                    // Supervisor validation messages only; reply content is never logged.
+                    log_event(LogLevel::Warning,
+                              QString("Rejected a worker reply: %1").arg(error.what()));
+                    fail(ui_text("Translation worker returned invalid data."));
                 } catch (...) {
                     fail(ui_text("Translation worker returned invalid data."));
                 }
@@ -286,6 +312,8 @@ void Worker::receive(const QJsonObject &value) {
         const auto job = std::exchange(active_, {});
         phase_ = Phase::Idle;
         cancel_sent_ = false;
+        if (const auto took = now() - translate_started_; took > 5000)
+            log_event(LogLevel::Info, QString("Slow translation: %1 ms").arg(took));
         if (job->epoch == epoch_ && result)
             result(*job, {text, value["translated"].toBool(), language});
     } else if (type == "cleared" && phase_ == Phase::Clearing)
@@ -338,6 +366,7 @@ void Worker::pump() {
     if (!active_)
         return;
     phase_ = Phase::Translating;
+    translate_started_ = now();
     send({{"type", "translate"}, {"message", ipc::message(active_->message)}},
          int(std::min<qint64>(
              limits_.translation_ms,
@@ -349,6 +378,11 @@ void Worker::fail(const QString &reason, bool recover) {
     if (dropped && skipped)
         skipped(dropped);
     const bool retry = recover && wanted_ && failures_++ == 0;
+    log_event(retry ? LogLevel::Warning : LogLevel::Error,
+              QString("Translation failure: %1 %2")
+                  .arg(reason, QString(retry ? "Restarting the worker once."
+                                             : "Translation stopped until reconnect or model "
+                                               "change.")));
     wanted_ = retry;
     if (retry && requested_ == RunOn::GPU) {
         launch_device_ = RunOn::CPU;

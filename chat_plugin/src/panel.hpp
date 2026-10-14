@@ -29,7 +29,8 @@ class Panel : public QDialog {
     QLabel *connection_, *model_, *device_help_, *profile_help_;
     Worker::State model_state_ = Worker::State::Stopped;
     bool preview_ = false, started_ = false;
-    size_t skipped_ = 0;
+    size_t skipped_ = 0, skipped_unlogged_ = 0;
+    QElapsedTimer skip_log_;
     void build_ui();
     void bind_worker();
     void save_settings();

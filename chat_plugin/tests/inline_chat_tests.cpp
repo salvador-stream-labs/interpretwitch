@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "inline_chat.hpp"
+#include "diagnostics.hpp"
 #include "panel.hpp"
 #include <QApplication>
 #include <QFile>
@@ -10,6 +11,7 @@
 #include <QTemporaryDir>
 #include <QThread>
 #include <QUuid>
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 
@@ -53,6 +55,15 @@ static void request(QWebSocket &socket, QString id, QString text = "This is a me
 }
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
+    QStringList logged;
+    set_log_sink([&](LogLevel, const QString &event) {
+        logged << event;
+    });
+    const auto logged_any = [&](const QString &needle) {
+        return std::any_of(logged.begin(), logged.end(), [&](const QString &line) {
+            return line.contains(needle);
+        });
+    };
     try {
         QString script;
         InlineChat bridge([&](const QString &value) {
@@ -248,6 +259,16 @@ int main(int argc, char **argv) {
         wait_for([&] {
             return offered == 26;
         });
+        // The page's stop reason is logged and does not itself drop the page.
+        client.sendTextMessage(R"({"type":"stopping","reason":"timeout","pending":3,"detail":"x"})");
+        wait_for([&] {
+            return logged_any("no reply for 20 s (page waiting for 3");
+        });
+        spin();
+        check(client.state() == QAbstractSocket::ConnectedState, "Stop report dropped the page");
+        check(logged_any("origin https://unrelated.example") && logged_any("wrong capability") &&
+                  logged_any("a page is already connected"),
+              "Rejected connections were not logged");
         client.abort();
         wait_for([&] {
             return reset == 1;
@@ -277,6 +298,11 @@ int main(int argc, char **argv) {
         wait_for([&] {
             return client.state() == QAbstractSocket::UnconnectedState;
         });
+        // State-only diagnostics: no capability, chat text or translation.
+        check(logged_any("Twitch page connected") && logged_any("Twitch page disconnected") &&
+                  !logged_any(url.path().mid(1)) && !logged_any("This is a message") &&
+                  !logged_any("Это сообщение") && !logged_any("Stale translation"),
+              "Bridge diagnostics missing or include private content");
         bridge.stop();
         check(!bridge.active() && script.contains("?.stop()"), "Disable failed to detach page");
         check(bridge.start() && endpoint(script) != url, "Enable reused capability");

@@ -41,11 +41,16 @@ class InlineChat : public QObject {
     QString health_, detail_;
     bool ready_ = false;
     bool language_label_ = true, background_ = true;
+    // Diagnostics only: log state changes, not every repeated attempt/request.
+    bool dock_found_ = false, unserved_logged_ = false;
+    QString logged_state_;
     int attempts_ = 0, received_ = 0;
     void attach();
     bool execute(const QString &script) const noexcept;
     void accept();
     void receive(const QString &text);
+    void page_stopping(const QJsonObject &object);
+    void reject(const QString &why);
     void send(const QJsonObject &value);
 };
 } // namespace awl::chat

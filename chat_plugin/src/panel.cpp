@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "panel.hpp"
+#include "diagnostics.hpp"
 #include "ui_text.hpp"
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -185,6 +186,16 @@ void Panel::bind_worker() {
         model_->setText(text);
     };
     worker_->state_changed = [this](Worker::State state, RunOn actual, QString fallback) {
+        static constexpr const char *names[] = {"stopped", "preparing", "ready", "recovering",
+                                                "failed"};
+        log_event(state == Worker::State::Failed ? LogLevel::Error : LogLevel::Info,
+                  QString("Model %1: %2 → %3 on %4%5")
+                      .arg(QString(names[int(state)]),
+                           model_id(selected_profile(), selected_target()), selected_target(),
+                           QString(actual == RunOn::GPU ? "GPU" : "CPU"),
+                           state == Worker::State::Failed ? " · " + model_->text()
+                           : fallback.isEmpty()           ? QString()
+                                                          : " · " + fallback));
         model_state_ = state;
         const bool ready = state == Worker::State::Ready;
         const bool busy = state == Worker::State::Preparing || state == Worker::State::Recovering;
@@ -212,6 +223,14 @@ void Panel::bind_worker() {
     };
     worker_->skipped = [this](size_t count) {
         skipped_ += count;
+        skipped_unlogged_ += count;
+        if (!skip_log_.isValid() || skip_log_.elapsed() >= 10000) {
+            log_event(LogLevel::Info, QString("Busy chat: %1 translations skipped (%2 total)")
+                                          .arg(skipped_unlogged_)
+                                          .arg(skipped_));
+            skipped_unlogged_ = 0;
+            skip_log_.start();
+        }
         model_->setText(ui_text("Busy chat · %1 older translations skipped").arg(skipped_));
     };
     worker_->result = [this](Job job, Translation result) {

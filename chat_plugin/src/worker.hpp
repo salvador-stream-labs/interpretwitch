@@ -49,6 +49,7 @@ class Worker : public QObject {
          cancel_sent_ = false;
     int failures_ = 0;
     int status_updates_ = 0;
+    qint64 translate_started_ = 0;
     void launch();
     void stop();
     void send(QJsonObject value, int timeout);

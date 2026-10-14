@@ -42,7 +42,7 @@ add_library(awl-chat-text STATIC src/ui_text.cpp)
 target_include_directories(awl-chat-text PUBLIC src)
 target_link_libraries(awl-chat-text PUBLIC Qt6::Core)
 qt_add_resources(awl-chat-text chat_locale PREFIX "/awl-chat" BASE data FILES data/locale/ru-RU.json data/languages.json)
-add_library(awl-chat-core STATIC src/chat_core.cpp src/model_profile.cpp)
+add_library(awl-chat-core STATIC src/chat_core.cpp src/model_profile.cpp src/diagnostics.cpp)
 target_include_directories(awl-chat-core PUBLIC src)
 target_link_libraries(awl-chat-core PUBLIC awl-chat-text)
 # Inference and file access are helper-only targets. Neither is linked into OBS.

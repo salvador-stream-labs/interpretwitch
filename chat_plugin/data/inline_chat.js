@@ -147,8 +147,10 @@ function attachInterpretwitch(config) {
                 if (!stopped) showHealth();
                 // No deferred scroll can overtake a later user action.
                 restore();
-            } catch {
-                stop(true); // Page-layout errors must leave native chat usable.
+            } catch (error) {
+                // Page-layout errors must leave native chat usable. Report only
+                // the error type/message, never row text.
+                stop(true, 'layout-error', `${error?.name}: ${error?.message}`);
             }
         };
     }
@@ -198,7 +200,7 @@ function attachInterpretwitch(config) {
             pending.set(id, row);
             row.appendChild(slot);
             // Existing request deadline doubles as a health check. No idle ping.
-            record.timeout = setTimeout(() => stop(true), 20000);
+            record.timeout = setTimeout(() => stop(true, 'timeout'), 20000);
             socket.send(JSON.stringify({type: 'translate', id, parts: value.parts}));
             submitted++;
         }
@@ -225,7 +227,7 @@ function attachInterpretwitch(config) {
         });
         if (external) schedule();
     });
-    function stop(failed = false) {
+    function stop(failed = false, reason = '', detail = '') {
         if (!stopped) {
             stopped = true;
             clearTimeout(scheduled);
@@ -233,6 +235,13 @@ function attachInterpretwitch(config) {
             document.removeEventListener('visibilitychange', schedule);
             window.removeEventListener('pagehide', pagehide);
             socket.onclose = socket.onerror = null;
+            // Tell the plugin why, for its log. No chat content is included.
+            if (failed && reason && socket.readyState === WebSocket.OPEN) {
+                try {
+                    socket.send(JSON.stringify({type: 'stopping', reason, pending: pending.size,
+                        detail: String(detail).slice(0, 200)}));
+                } catch {}
+            }
             socket.close();
             const restore = scrollAdjustment();
             clear();
@@ -252,7 +261,7 @@ function attachInterpretwitch(config) {
     socket.onmessage = preserveChatScroll(event => {
         if (stopped || typeof event.data !== 'string' || event.data.length > 65536) return;
         let value;
-        try { value = JSON.parse(event.data); } catch { stop(true); return; }
+        try { value = JSON.parse(event.data); } catch { stop(true, 'bad-reply'); return; }
         if (value.type === 'appearance') {
             showLanguage = value.language_label === true;
             showBackground = value.background === true;

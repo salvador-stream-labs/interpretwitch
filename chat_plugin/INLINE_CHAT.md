@@ -130,4 +130,9 @@ offline fixture. Live Windows operation and the corrected health display in
 signed-in OBS still need acceptance checks. The owner confirmed the preceding
 layout and scrolling.
 Native code can fail despite these tests; see
-[ISOLATION.md](ISOLATION.md). No chat-content logging or telemetry is added.
+[ISOLATION.md](ISOLATION.md). There is no telemetry. OBS's log receives
+state-only `[Interpretwitch]` diagnostics: bridge connections, rejections and
+disconnects, the page's reason for stopping (`timeout`, `layout-error` or
+`bad-reply`, with the JavaScript error type and message for layout errors), worker
+lifecycle and model state. Chat text, translations, usernames and the capability
+token are never logged.
