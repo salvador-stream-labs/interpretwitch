@@ -20,7 +20,7 @@ ARCHIVES = ROOT / '.phase0/chat/archives-win'
 OBS_DIR = Path(os.environ.get('AWL_OBS_DIR', r'C:\Program Files\obs-studio'))
 # Source archives shared with the Mac recipe. Mac binaries and SIMDe are not needed.
 SHARED = ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext']
-CT2_RUNTIME = ['ctranslate2.dll', 'libiomp5md.dll', 'cudnn64_9.dll']
+CT2_RUNTIME = ['ctranslate2.dll', 'libiomp5md.dll']
 
 
 def fetch(name, asset):

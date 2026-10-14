@@ -8,7 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-import zipfile
+from package_source import write_source
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / 'chat_plugin'
@@ -36,16 +36,8 @@ def main():
     resources = STAGE / 'Contents/Resources'
     for name in ['README.md', 'ARCHITECTURE.md', 'ISOLATION.md', 'INLINE_CHAT.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'dependencies.lock.json']:
         shutil.copy2(PROJECT / name, resources)
-    with zipfile.ZipFile(resources / 'source.zip', 'w', zipfile.ZIP_DEFLATED) as z:
-        for p in sorted(PROJECT.rglob('*')):
-            if p.is_file() and '__pycache__' not in p.parts:
-                z.write(p, str(p.relative_to(ROOT)))
-        for name in ['Install Interpretwitch.command', 'README.md', 'BUILD.md', 'LICENSE', '.gitignore']:
-            z.write(ROOT / name, name)
-        # QtWebSockets corresponding source is shipped alongside the library.
-        for name in ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext', 'simde']:
-            p = ROOT / '.phase0/chat/archives' / name
-            z.write(p, 'dependency-sources/' + name + '.tar.gz')
+    source = write_source(resources / 'source.zip', ROOT / '.phase0/chat/archives',
+                          ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext', 'simde'])
     shutil.copy2(DEPS / 'qt/lib/QtWebSockets.framework/Versions/A/Resources/PrivacyInfo.xcprivacy', resources / 'QtWebSockets-PrivacyInfo.xcprivacy')
     helper = STAGE / 'Contents/MacOS/awl-chat-worker'
     for binary in [frameworks / 'libawl-ctranslate2.dylib', ws, helper]:
@@ -71,7 +63,7 @@ def main():
                 'helper_sha256': hashlib.sha256(helper.read_bytes()).hexdigest(),
                 'source_sha256': hashlib.sha256((resources / 'source.zip').read_bytes()).hexdigest(),
                 'inference_process': 'awl-chat-worker',
-                'models_bundled': False, 'signature': 'local ad-hoc, not notarized'}
+                'models_bundled': False, 'signature': 'local ad-hoc, not notarized', 'source': source}
     (stage_parent / 'package.json').write_text(json.dumps(evidence, indent=2) + '\n')
     if DESTINATION.exists():
         backup = Path(tempfile.mkdtemp(prefix='.chat-previous-', dir=DESTINATION.parent)) / 'package'

@@ -17,7 +17,7 @@ function attachInterpretwitch(config) {
     const injectedSelector = '[data-awl-translation], [data-awl-original], [data-awl-health]';
     let ready = false, stopped = false, scheduled = 0;
     let budgetStarted = 0, submitted = 0;
-    let showLanguage = true, showBackground = true;
+    let showOriginal = true, showLanguage = true, showBackground = true;
     let healthText = config.health.waiting, healthDetail = '', lastReply = '';
     const health = document.createElement('span');
     health.dataset.awlHealth = '';
@@ -30,10 +30,12 @@ function attachInterpretwitch(config) {
         [data-awl-translation][data-awl-primary] { display:inline; font-size:1em; margin:0; }
         [data-awl-source], [data-awl-original] { font-size:.82em; }
         [data-awl-original]::before { content:''; display:block; margin-top:.2em; }
+        [data-awl-hide-original] [data-awl-source], [data-awl-hide-original] [data-awl-original] { display:none !important; }
         [data-awl-language] { display:inline-block; font:inherit; font-size:.8em; line-height:1.5; font-weight:400;
             padding:0 .4em; margin-inline-end:.6em; border-radius:999px; vertical-align:.08em;
             background:color-mix(in srgb,currentColor 5%,transparent); }
         [data-awl-language][hidden] { display:none; }
+        [data-awl-translation] > [data-awl-language]:last-child { font-size:.66em; margin-inline-start:.6em; margin-inline-end:0; }
         [data-awl-health] { display:block; font:normal 11px/1.4 sans-serif; opacity:.65; white-space:normal; }
     `;
     document.head.appendChild(style);
@@ -94,6 +96,8 @@ function attachInterpretwitch(config) {
         // Unknown markup containing identity/controls must retain Twitch's layout.
         if (source.some(node => node.nodeType === Node.ELEMENT_NODE &&
             (node.matches(authorSelector + ', button') || node.querySelector(authorSelector + ', button')))) return;
+        // Bare text cannot be hidden with CSS without moving Twitch-owned nodes.
+        if (source.some(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim())) return;
         record.source = source.filter(node => node.nodeType === Node.ELEMENT_NODE && node !== record.slot);
         const lead = document.createElement('span');
         lead.dataset.awlOriginal = '';
@@ -113,6 +117,7 @@ function attachInterpretwitch(config) {
         record.lead?.remove();
         for (const node of record.source || []) node.removeAttribute('data-awl-source');
         row.removeAttribute('data-awl-group');
+        row.removeAttribute('data-awl-hide-original');
         rows.delete(row);
     }
     function clear() { for (const row of rows.keys()) remove(row); }
@@ -161,9 +166,20 @@ function attachInterpretwitch(config) {
         // Only inspect a bounded set of existing chat rows, never the account UI.
         const existing = [...document.querySelectorAll(rowSelector)];
         const candidates = existing.slice(-200);
-        const current = new Set(candidates);
+        const contents = new Map();
+        // Inspect native visibility, including Twitch's own hiding/moderation.
+        // Lift our CSS once per synchronous batch, never once per row. Restoring
+        // it before returning prevents a visible flash and avoids feedback from
+        // our hidden originals. No native nodes or inline styles are changed.
+        try {
+            if (!showOriginal) style.sheet.disabled = true;
+            for (const row of candidates) {
+                if (!rows.has(row) && history.has(row) && history.get(row) === row.textContent) continue;
+                contents.set(row, content(row));
+            }
+        } finally { style.sheet.disabled = false; }
         for (const [row, record] of rows) {
-            const value = current.has(row) ? content(row) : null;
+            const value = contents.get(row);
             if (!value || value.signature !== record.signature ||
                 (record.translated && (!record.slot.isConnected || record.lead?.isConnected === false ||
                     record.source?.some(node => !node.isConnected)))) remove(row);
@@ -184,7 +200,7 @@ function attachInterpretwitch(config) {
                 if (history.get(row) === row.textContent) continue;
                 history.delete(row);
             }
-            const value = content(row);
+            const value = contents.get(row);
             if (!value) continue;
             // Pace existing history too: fast language skips must not flood the bridge.
             if (submitted >= 24) { schedule(Math.max(50, 1000 - (now - budgetStarted))); break; }
@@ -211,7 +227,14 @@ function attachInterpretwitch(config) {
     function appearance() {
         for (const [row, record] of rows) {
             row.toggleAttribute('data-awl-group', showBackground && !!record.translated);
-            if (record.badge) record.badge.hidden = !showLanguage;
+            row.toggleAttribute('data-awl-hide-original', !showOriginal && !!record.lead);
+            if (record.badge) {
+                record.badge.hidden = !showLanguage;
+                const parent = showOriginal && record.lead ? record.lead : record.slot;
+                if (record.badge.parentElement !== parent) parent.append(record.badge);
+                if (showOriginal && !record.lead && parent.firstElementChild !== record.badge) parent.prepend(record.badge);
+                else if (!showOriginal && parent.lastElementChild !== record.badge) parent.append(record.badge);
+            }
         }
     }
     const observer = new MutationObserver(mutations => {
@@ -263,6 +286,7 @@ function attachInterpretwitch(config) {
         let value;
         try { value = JSON.parse(event.data); } catch { stop(true, 'bad-reply'); return; }
         if (value.type === 'appearance') {
+            showOriginal = value.show_original !== false;
             showLanguage = value.language_label === true;
             showBackground = value.background === true;
             appearance();

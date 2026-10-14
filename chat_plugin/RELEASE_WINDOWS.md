@@ -1,8 +1,34 @@
-# Windows release preparation · Interpretwitch 0.8.1
+# Windows release preparation · Interpretwitch 0.8.2
 
 Status of the Windows x64 build and what remains before it is published. This is
 a review document for maintainers; user-facing setup is in [README.md](README.md)
 and build steps are in [BUILD.md](../BUILD.md#windows).
+
+## 0.8.2 release automation
+
+The historical Windows measurements below describe 0.8.1. Version 0.8.2 adds
+Show original and GitHub build/release preparation; do not treat older live-test
+evidence as validation of a new binary.
+
+- Fresh Mac/Windows GitHub builds, browser fixtures, Windows install/upgrade/
+  uninstall tests, SHA-256 manifests and provenance attestations are configured
+  in `.github/workflows/build.yml`. A version tag creates a draft only, after both
+  platforms pass. Inspect that run before publishing.
+- cuDNN has been removed from preparation and packaging; the installer now
+  restricts installation to x64 Windows (`x64os`).
+- Windows CTranslate2, Intel OpenMP, oneDNN and WinHTTP notices are now included.
+  The exact OpenMP DLL was matched to Intel's 2025.3.0 wheel. Its EULA and nested
+  component notices need redistribution review before publication; this remains
+  a gate, not a claim that adding licence files settles all terms.
+- The stalled-loading test gives helper startup 1.5 seconds on busy runners while
+  still requiring exactly one bounded recovery. Production deadlines are unchanged.
+- Source ZIPs now contain tracked files only and record the Git commit and clean
+  checkout status. Release wrapping refuses changed module/helper/source hashes.
+
+This addresses the code changes in preview blockers 1–3 below and adds automated
+coverage for blocker 5; actual successful CI results must still be reviewed.
+The one-hour live acceptance check, publisher signing, broader hardware checks and
+backup-retention policy remain outstanding. See [release draft](../RELEASE_NOTES.md).
 
 ## Recommendation
 

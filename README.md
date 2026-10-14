@@ -5,7 +5,8 @@ Local Twitch chat translation by **Salvador Stream Labs**.
 Interpretwitch adds local translations to messages in OBS’s
 built-in Twitch Chat dock. Twitch keeps its original messages, selectable text,
 emotes, appearance and moderation controls. The translation follows the username,
-with a smaller original underneath, a compact language label and a subtle background.
+with an optional smaller original underneath, a compact language label and a subtle background.
+Turn off **Show original** to append the language label to the translation instead.
 
 Choose **Light · English chat** or **Heavy · Multilingual chat**, then select
 **Translate into**. Russian is the default. Light offers five small language packs;
@@ -15,6 +16,9 @@ request, with pinned sizes and hashes. There is no cloud translation, telemetry,
 separate Twitch login, Client ID setup, audio capture or speech generation.
 
 ## Use it
+
+See [downloads and verification](DOWNLOADS.md) for preview packages and supported
+platforms. GitHub builds prepare release drafts; a draft is not a public download.
 
 1. Install the plugin with OBS closed. On Mac, run `Install Interpretwitch.command`.
 2. Connect Twitch in **OBS Settings → Stream**, then open **Docks → Chat**.
@@ -32,7 +36,7 @@ failure restores original messages and stops waiting indicators.
 
 ## Status
 
-Version **0.8.1**, development build for **Apple Silicon, macOS 14+, OBS 32.2.2**.
+Version **0.8.2**, development build for **Apple Silicon, macOS 14+, OBS 32.2.2**.
 The preceding browser bridge worked in the owner’s signed-in Mac OBS session.
 This revision’s layout, defaults and settings are checked by automated tests;
 Windows execution and NVIDIA hardware still need validation for this revision; see

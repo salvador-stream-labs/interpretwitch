@@ -1,0 +1,8 @@
+{
+  "name": "interpretwitch-browser-tests",
+  "private": true,
+  "description": "Developer-only offline chat adapter regression tests",
+  "devDependencies": {
+    "playwright": "1.60.0"
+  }
+}

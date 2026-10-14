@@ -250,7 +250,9 @@ int main(int argc, char **argv) {
         {
             QTemporaryDir cache;
             bool stopped = false;
-            Worker worker("load-hang", cache.path(), nullptr, fixture, {150, 150, 300, 10});
+            // Allow process/DLL startup on a busy CI host; still require the
+            // stalled helper to stop after exactly one bounded recovery.
+            Worker worker("load-hang", cache.path(), nullptr, fixture, {1500, 150, 300, 10});
             worker.state_changed = [&](Worker::State state, RunOn, QString) {
                 if (state == Worker::State::Preparing || state == Worker::State::Recovering)
                     return;

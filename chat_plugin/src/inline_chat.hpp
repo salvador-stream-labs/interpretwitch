@@ -19,7 +19,7 @@ class InlineChat : public QObject {
     void stop(bool failed = false);
     void set_ready(bool ready, QString health = {}, QString detail = {});
     void set_target(const QString &target);
-    void set_appearance(bool language_label, bool background);
+    void set_appearance(bool show_original, bool language_label, bool background);
     void deliver(const QString &id, const Translation &translation);
     bool active() const {
         return server_.isListening();
@@ -40,7 +40,7 @@ class InlineChat : public QObject {
     QString target_ = "ru";
     QString health_, detail_;
     bool ready_ = false;
-    bool language_label_ = true, background_ = true;
+    bool show_original_ = true, language_label_ = true, background_ = true;
     // Diagnostics only: log state changes, not every repeated attempt/request.
     bool dock_found_ = false, unserved_logged_ = false;
     QString logged_state_;

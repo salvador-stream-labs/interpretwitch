@@ -1,6 +1,6 @@
 # Twitch chat adapter
 
-Interpretwitch 0.8.1 uses OBS’s built-in Twitch Chat dock as its only chat source.
+Interpretwitch 0.8.2 uses OBS’s built-in Twitch Chat dock as its only chat source.
 The owner confirmed the preceding bridge in a signed-in Mac OBS session. Twitch
 continues to own original messages, emotes, settings and moderation controls.
 
@@ -20,11 +20,23 @@ shortened localized names. These identify the detector/routing result, not a
 guarantee of accuracy. They are display labels; internal model codes stay unchanged.
 Unknown/skipped results receive no pill or container.
 
+**Show original** defaults to on and is remembered across launches. Turning it
+off hides the original only after successful translation and places the optional
+language label inline after the translated text. Pending and skipped messages
+remain readable. Changing this preference updates existing rows without inference.
+
 Original message nodes remain in their existing parents, with links, mentions and
 emote handlers intact. The adapter inserts the translation and a line separator,
 then adds removable sizing attributes to original content. If unfamiliar markup
-mixes identity or button controls into that content, it keeps the original layout
+mixes identity, button controls or unwrapped text into that content, it keeps the original layout
 and appends the translation below instead.
+
+Hidden originals use removable CSS attributes, not deletion or reparenting. When
+scanning with originals hidden, the adapter temporarily disables its stylesheet
+for one synchronous batch to read native visibility, then restores it in `finally`
+before returning to the browser. This avoids per-row style toggles and lets Twitch's
+own hiding, deletion and edits still invalidate translations. There is no extra
+timer or observer. Failure, recovery and disable remove the hiding attributes.
 
 Before each batch of layout edits, the adapter checks the nearest scrollable
 chat ancestor. If it was at the bottom (within 2 CSS pixels), it stays at the

@@ -12,9 +12,22 @@ panel interface header, pinned to the OBS 32.2.2 submodule revision. See
 `third_party/obs-browser/README.md` in the source archive. It uses the browser
 already installed with OBS; no CEF/browser runtime is bundled.
 
-- **CTranslate2 4.8.2**, OpenNMT, MIT. The Mac library is extracted from the
-  official pinned PyPI wheel; Python is not required by the installed plugin.
+- **CTranslate2 4.8.2**, OpenNMT, MIT. The Mac and Windows libraries are extracted
+  from the official pinned PyPI wheels; Python is not required by the installed plugin.
   Source: https://github.com/OpenNMT/CTranslate2/tree/v4.8.2
+- **Intel OpenMP 2025.3.0**, Windows `libiomp5md.dll`, from that CTranslate2 wheel.
+  Its SHA-256 is `982233366b0afcda1e0f55a0b134097e35b779613f54ddb69e685e6cd06b755f`,
+  identical to the DLL in Intel's `intel_openmp-2025.3.0-py2.py3-none-win_amd64.whl`
+  (wheel SHA-256 `8ff899d01a41b92ffe0e618b221ea633127d16df726086082d381c431c31339d`).
+  The matching wheel's Intel EULA and OpenMP third-party notices are included as
+  `licenses/Intel-OpenMP-EULA.txt` and `licenses/Intel-OpenMP-third-party-programs.txt`.
+  They include LLVM OpenMP and other component terms. Public redistribution
+  clearance remains a release gate; inclusion of these texts does not settle it.
+  https://pypi.org/project/intel-openmp/2025.3.0/
+- **oneDNN 3.1.1**, Intel, Apache-2.0, statically included by the upstream Windows
+  CTranslate2 build. The matching upstream licence and third-party notices are in
+  `licenses/oneDNN-Apache-2.0.txt` and `licenses/oneDNN-third-party-programs.txt`.
+  https://github.com/oneapi-src/oneDNN/tree/v3.1.1
 - **SentencePiece 0.2.0**, Google, Apache-2.0. Statically linked, including its
   bundled minimal Abseil/protobuf support. Source and notices are in `source.zip`.
   https://github.com/google/sentencepiece/tree/v0.2.0
@@ -89,4 +102,5 @@ Models are downloaded separately when the user clicks Download model:
 
 OBS Studio and Twitch are independent projects/services. No affiliation or
 endorsement is implied. OBS supplies its own libobs, frontend API and base Qt
-runtime; Interpretwitch does not replace them. macOS supplies the HTTPS/system libraries.
+runtime; Interpretwitch does not replace them. macOS supplies its HTTPS/system
+libraries; Windows HTTPS uses the operating system's WinHTTP. cuDNN is not shipped.

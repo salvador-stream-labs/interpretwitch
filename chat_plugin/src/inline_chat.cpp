@@ -190,7 +190,7 @@ void InlineChat::accept() {
         });
         log_event(LogLevel::Info, "Twitch page connected to the bridge");
         set_ready(ready_, health_, detail_);
-        set_appearance(language_label_, background_);
+        set_appearance(show_original_, language_label_, background_);
         if (status)
             status(ui_text("Connected to Twitch dock · target: %1").arg(language_name(target_)));
         if (connected)
@@ -225,10 +225,14 @@ void InlineChat::set_target(const QString &target) {
     if (socket_ && status)
         status(ui_text("Connected to Twitch dock · target: %1").arg(language_name(target_)));
 }
-void InlineChat::set_appearance(bool language_label, bool background) {
+void InlineChat::set_appearance(bool show_original, bool language_label, bool background) {
+    show_original_ = show_original;
     language_label_ = language_label;
     background_ = background;
-    send({{"type", "appearance"}, {"language_label", language_label}, {"background", background}});
+    send({{"type", "appearance"},
+          {"show_original", show_original},
+          {"language_label", language_label},
+          {"background", background}});
 }
 void InlineChat::reject(const QString &why) {
     log_event(LogLevel::Warning, "Closed the Twitch page connection: " + why);

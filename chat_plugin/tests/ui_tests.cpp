@@ -25,6 +25,8 @@ int main(int argc, char **argv) {
                   "Upgrade lost the selected model");
             check(panel.findChild<QCheckBox *>("interpretwitchEnabled")->isChecked(),
                   "Not enabled by default");
+            check(panel.findChild<QCheckBox *>("interpretwitchShowOriginal")->isChecked(),
+                  "Original messages must remain visible by default after upgrade");
             check(!panel.findChild<QWidget *>("awlTwitchSetup") &&
                       !panel.findChild<QPushButton *>("awlChatConnect"),
                   "Standalone authentication remains");
@@ -42,6 +44,7 @@ int main(int argc, char **argv) {
             profiles->setCurrentIndex(0);
             check(targets->currentData() == "fr",
                   "Unsupported Light target must restore the last valid Light choice");
+            panel.findChild<QCheckBox *>("interpretwitchShowOriginal")->setChecked(false);
             panel.findChild<QCheckBox *>("interpretwitchLanguageLabel")->setChecked(false);
             panel.findChild<QCheckBox *>("interpretwitchBackground")->setChecked(false);
             panel.findChild<QCheckBox *>("interpretwitchEnabled")->setChecked(false);
@@ -53,8 +56,8 @@ int main(int argc, char **argv) {
         check(restored.findChild<QComboBox *>("interpretwitchTargetLanguage")->currentData() ==
                   "fr",
               "Target language was not saved");
-        for (auto name :
-             {"interpretwitchEnabled", "interpretwitchLanguageLabel", "interpretwitchBackground"})
+        for (auto name : {"interpretwitchEnabled", "interpretwitchShowOriginal",
+                          "interpretwitchLanguageLabel", "interpretwitchBackground"})
             check(!restored.findChild<QCheckBox *>(name)->isChecked(), "Preference was not saved");
         std::cout << "Bridge defaults, legacy model settings, appearance and disable persistence "
                      "passed.\n";

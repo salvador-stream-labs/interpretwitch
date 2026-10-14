@@ -2,6 +2,8 @@
 set -euo pipefail
 awl_chat_root=${0:A:h:h:h}
 awl_chat_bundle="$awl_chat_root/.phase0/packages/obs-chat-mac/awl-chat.plugin"
+# The downloadable ZIP places this script beside the ready-built bundle.
+if [[ -d "${0:A:h}/awl-chat.plugin" ]]; then awl_chat_bundle="${0:A:h}/awl-chat.plugin"; fi
 awl_chat_plugins="$HOME/Library/Application Support/obs-studio/plugins"
 awl_chat_target="$awl_chat_plugins/awl-chat.plugin"
 awl_chat_pending=""

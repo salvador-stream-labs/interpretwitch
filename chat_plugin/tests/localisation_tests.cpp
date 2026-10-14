@@ -29,6 +29,9 @@ int main(int argc, char **argv) {
             check(panel.findChild<QCheckBox *>("interpretwitchEnabled")->text() ==
                       (ui_locale() == "ru-RU" ? "Включить перевод" : "Enable translation"),
                   "Enable control locale");
+            check(panel.findChild<QCheckBox *>("interpretwitchShowOriginal")->text() ==
+                      (ui_locale() == "ru-RU" ? "Показывать оригинал" : "Show original"),
+                  "Show original control locale");
             check(panel.findChild<QScrollArea *>()->horizontalScrollBar()->maximum() == 0,
                   "Settings overflow a narrow window");
             for (auto label : panel.findChildren<QLabel *>())

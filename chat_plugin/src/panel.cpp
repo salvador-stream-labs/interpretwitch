@@ -47,7 +47,8 @@ Panel::Panel(QString manifest, QString cache, QString settings, QWidget *parent,
             prepare_model(false);
     };
     bridge_->set_target(selected_target());
-    bridge_->set_appearance(language_label_->isChecked(), background_->isChecked());
+    bridge_->set_appearance(show_original_->isChecked(), language_label_->isChecked(),
+                            background_->isChecked());
     connect(enabled_, &QCheckBox::toggled, this, [this] {
         save_settings();
         change_enabled();
@@ -71,10 +72,11 @@ Panel::Panel(QString manifest, QString cache, QString settings, QWidget *parent,
     connect(gpu_download_, &QPushButton::clicked, this, [this] {
         prepare_model(false, true);
     });
-    for (auto checkbox : {language_label_, background_})
+    for (auto checkbox : {show_original_, language_label_, background_})
         connect(checkbox, &QCheckBox::toggled, this, [this] {
             save_settings();
-            bridge_->set_appearance(language_label_->isChecked(), background_->isChecked());
+            bridge_->set_appearance(show_original_->isChecked(), language_label_->isChecked(),
+                                    background_->isChecked());
         });
     connect(resource_usage_, &QComboBox::currentIndexChanged, this, [this] {
         update_targets(selected_target());
@@ -190,16 +192,19 @@ void Panel::build_ui() {
 
     auto appearance = new QGroupBox(ui_text("Appearance"), content);
     auto options = new QVBoxLayout(appearance);
+    show_original_ = new QCheckBox(ui_text("Show original"), appearance);
+    show_original_->setObjectName("interpretwitchShowOriginal");
+    show_original_->setChecked(settings_.value("show_original", true).toBool());
     language_label_ = new QCheckBox(ui_text("Show detected language"), appearance);
     language_label_->setObjectName("interpretwitchLanguageLabel");
     language_label_->setChecked(settings_.value("language_label", true).toBool());
     background_ = new QCheckBox(ui_text("Subtle background around translations"), appearance);
     background_->setObjectName("interpretwitchBackground");
     background_->setChecked(settings_.value("background", true).toBool());
+    options->addWidget(show_original_);
     options->addWidget(language_label_);
     options->addWidget(background_);
-    label(ui_text("Original messages, names and moderation controls stay in Twitch's layout."),
-          options);
+    label(ui_text("Messages without a translation always remain visible."), options);
     layout->addWidget(appearance);
     label(ui_text("Chat is translated on your computer. Salvador Stream Labs receives no chat "
                   "messages or Twitch credentials."),
@@ -302,6 +307,7 @@ void Panel::change_enabled() {
 }
 void Panel::save_settings() {
     settings_.setValue("enabled", enabled_->isChecked());
+    settings_.setValue("show_original", show_original_->isChecked());
     settings_.setValue("language_label", language_label_->isChecked());
     settings_.setValue("background", background_->isChecked());
     settings_.setValue("run_on", run_on_->currentData().toString());

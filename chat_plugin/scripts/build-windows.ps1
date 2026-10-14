@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path
 Set-Location $root
-$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+# Preserve tools selected by the caller (including GitHub's setup actions).
 
 function Invoke-Checked {
     & $args[0] @($args | Select-Object -Skip 1)

@@ -1,6 +1,6 @@
 # Reviewing Interpretwitch
 
-Version 0.8.1, by Salvador Stream Labs. This source map describes executable
+Version 0.8.2, by Salvador Stream Labs. This source map describes executable
 behaviour; it is not an audit certificate or a guarantee against native failures.
 
 ## Follow one message

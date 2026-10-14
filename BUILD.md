@@ -1,5 +1,28 @@
 # Build and test Interpretwitch
 
+## GitHub builds and release drafts
+
+`.github/workflows/build.yml` builds on fresh `macos-14` (Apple Silicon) and
+`windows-2022` x64 runners. OBS runtime archives are pinned by size and SHA-256 in
+`chat_plugin/ci-runtimes.lock.json`; dependencies use the existing lock files.
+Official GitHub actions are pinned to commits. Browser test dependencies have a
+separate npm lock file and are never installed with the plugin.
+
+The workflow runs the native suites, offline Chromium/bridge checks, module-load
+checks and Windows installation lifecycle test. It then creates ZIPs, the Windows
+installer, platform manifests and checksum files. Successful non-PR builds have
+GitHub provenance attestations. Source archives contain only tracked files, and
+distribution fails if the checkout is dirty or differs from the packaged source.
+
+A `v*` tag creates a **draft pre-release** after both platforms succeed. It does
+not automatically publish a stable release. Review `RELEASE_NOTES.md` and the
+acceptance gates before publishing. Do not move an existing release tag or replace
+published downloads: use a new version for changed binaries. See [downloads](DOWNLOADS.md)
+for verification and installation. Checksums are not publisher code signatures.
+
+The workflow and both clean-runner builds must pass before a release is ready;
+local successful builds alone are not sufficient.
+
 The supported development recipe targets Apple Silicon, macOS 14+, OBS 32.2.2
 and Qt 6.11.1. It stages a local package and checks it; installation is a separate
 action. No Twitch account or model download is required for the seven unit and
@@ -165,6 +188,12 @@ The 0.8.1 browser regression also checks the current Twitch header markup and
 five-message catch-up on startup, reconnect, target change and model recovery,
 including delayed history population and older rows entering the live work window.
 Subsequent live bursts still exercise the 200-row work bound.
+
+The 0.8.2 browser checks exercise **Show original** in both positions, independent
+language-label visibility, native edits and moderation while originals are hidden,
+restoration after failures, and scroll position when switching layouts. Native
+tests cover its enabled default, persistence, bridge messages and English/Russian
+labels. The Windows 0.8.1 evidence above predates this appearance change.
 
 The 0.8.0 review passed all seven CTest suites in Release and in an
 AddressSanitizer/UndefinedBehaviorSanitizer Debug build (halt on errors; leak

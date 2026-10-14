@@ -23,7 +23,7 @@ class Panel : public QDialog {
     QSettings settings_;
     std::unique_ptr<Worker> worker_;
     std::unique_ptr<InlineChat> bridge_;
-    QCheckBox *enabled_, *language_label_, *background_;
+    QCheckBox *enabled_, *show_original_, *language_label_, *background_;
     QComboBox *run_on_, *resource_usage_, *target_language_;
     QPushButton *download_, *cancel_, *reconnect_, *gpu_download_;
     QLabel *connection_, *model_, *device_help_, *profile_help_, *gpu_notice_;

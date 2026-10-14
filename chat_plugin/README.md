@@ -1,6 +1,6 @@
 # Interpretwitch
 
-An OBS plugin by **Salvador Stream Labs**, version 0.8.1.
+An OBS plugin by **Salvador Stream Labs**, version 0.8.2.
 
 ## Setup
 
@@ -23,7 +23,8 @@ are explicit and verified; the package itself contains no model weights.
 | Resource usage: Heavy | Multilingual chat → any of the model’s 100 targets, approximately 497 MB downloaded once. One CPU inference thread. More RAM and work per message. |
 | Translate into | Russian by default. Light lists only verified small packs; Heavy lists all supported targets. Already-target-language messages stay unchanged. |
 | Run on | CPU by default and recommended for most chats. NVIDIA GPU can be selected on Windows; translation falls back to CPU with a specific reason when GPU cannot be used (see [GPU on Windows](#gpu-on-windows)). Mac GPU is unsupported. |
-| Show detected language | A subtle label such as АН (English, when translating into Russian) precedes the smaller original text below the translation. Hover for the full language name. Detection can be wrong, especially for short or mixed-language messages. |
+| Show original | On by default. Shows the smaller original below each translation. Off hides only successfully translated originals and appends the language label inline after the translation. Pending, skipped or failed translations keep the original visible. |
+| Show detected language | A subtle label such as АН (English, when translating into Russian) appears before the original, or after the translation when originals are hidden. Hover for the full language name. Detection can be wrong, especially for short or mixed-language messages. |
 | Subtle background around translations | A faint theme-aware background encloses each successfully translated original/translation pair. |
 
 Settings apply immediately. Closing the window keeps translation running. The

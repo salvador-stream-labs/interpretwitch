@@ -11,7 +11,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-import zipfile
+from package_source import write_source
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / 'chat_plugin'
@@ -36,21 +36,14 @@ def main():
     module, helper = binaries / 'awl-chat.dll', binaries / 'awl-chat-worker.exe'
     # The helper loads inference DLLs from its own directory. OBS loads the extra
     # Qt module beside the plugin DLL; base Qt DLLs are OBS's own matching copies.
-    for name in ['ctranslate2.dll', 'libiomp5md.dll', 'cudnn64_9.dll']:
+    for name in ['ctranslate2.dll', 'libiomp5md.dll']:
         shutil.copy2(DEPS / 'bin' / name, binaries)
     shutil.copy2(DEPS / 'qt/bin/Qt6WebSockets.dll', binaries)
     for name in ['README.md', 'ARCHITECTURE.md', 'ISOLATION.md', 'INLINE_CHAT.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
                  'dependencies.lock.json', 'dependencies-windows.lock.json']:
         shutil.copy2(PROJECT / name, data)
-    with zipfile.ZipFile(data / 'source.zip', 'w', zipfile.ZIP_DEFLATED) as z:
-        for p in sorted(PROJECT.rglob('*')):
-            if p.is_file() and '__pycache__' not in p.parts:
-                z.write(p, str(p.relative_to(ROOT)))
-        for name in ['Install Interpretwitch.command', 'README.md', 'BUILD.md', 'LICENSE', '.gitignore']:
-            z.write(ROOT / name, name)
-        # QtWebSockets corresponding source is shipped alongside the library.
-        for name in ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext', 'zlib']:
-            z.write(ROOT / '.phase0/chat/archives-win' / name, 'dependency-sources/' + name + '.tar.gz')
+    source = write_source(data / 'source.zip', ROOT / '.phase0/chat/archives-win',
+                          ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext', 'zlib'])
     files = [p for p in STAGE.rglob('*') if p.is_file()]
     if any(p.suffix in ('.bin', '.ftz', '.spm', '.model') for p in files):
         raise RuntimeError('Model weights unexpectedly bundled')
@@ -77,7 +70,7 @@ def main():
                 'helper_sha256': hashlib.sha256(helper.read_bytes()).hexdigest(),
                 'source_sha256': hashlib.sha256((data / 'source.zip').read_bytes()).hexdigest(),
                 'inference_process': 'awl-chat-worker.exe',
-                'models_bundled': False, 'signature': 'unsigned development build'}
+                'models_bundled': False, 'signature': 'unsigned development build', 'source': source}
     (stage_parent / 'package.json').write_text(json.dumps(evidence, indent=2) + '\n')
     if DESTINATION.exists():
         backup = Path(tempfile.mkdtemp(prefix='.chat-previous-', dir=DESTINATION.parent)) / 'package'

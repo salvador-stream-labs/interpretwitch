@@ -11,7 +11,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'interpretwitch-dom-'));
     const scriptPath = path.join(directory, 'attach.js');
     const fixture = spawn(process.argv[2], ['--fixture', scriptPath], {
-        env: {...process.env, QT_QPA_PLATFORM: 'offscreen'}, stdio: ['ignore', 'ignore', 'pipe']
+        env: {...process.env, QT_QPA_PLATFORM: process.platform === 'win32' ? 'minimal' : 'offscreen'}, stdio: ['ignore', 'ignore', 'pipe']
     });
     let browser, page;
     const diagnostics = [];
@@ -132,16 +132,42 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         assert.ok(Math.abs(firstLayout.authorTop - firstLayout.primaryTop) < 2, 'Translation must follow the username');
         assert.ok(firstLayout.originalTop > firstLayout.primaryTop + 10, 'Original must be on the next line');
         assert.ok(firstLayout.originalSize < firstLayout.primarySize, 'Original must be smaller');
-        const appearance = async (label, background) => page.evaluate(({label, background}) => {
+        const appearance = async (label, background, original = true) => page.evaluate(({label, background, original}) => {
             window.testSocket.dispatchEvent(new MessageEvent('message', {data: JSON.stringify({
-                type: 'appearance', language_label: label, background})}));
-        }, {label, background});
+                type: 'appearance', language_label: label, background, show_original: original})}));
+        }, {label, background, original});
         await appearance(false, false);
         assert.equal(await page.locator('#first [data-awl-language]').isVisible(), false);
         assert.equal(await page.locator('[data-awl-group]').count(), 0);
         assert.ok((await layout('first')).originalTop > firstLayout.primaryTop + 10, 'Hiding the pill must retain the original line');
         await appearance(true, true);
         assert.equal(await page.locator('#first [data-awl-language]').isVisible(), true);
+        const beforeAppearance = await page.evaluate(() => window.sentRequests.length);
+        await appearance(true, true, false);
+        assert.equal(await page.locator('#first .text-fragment').isVisible(), false);
+        assert.equal(await page.locator('#first [data-awl-original]').isVisible(), false);
+        const inlinePill = await page.locator('#first [data-awl-primary]').evaluate(node => {
+            const text = node.firstElementChild.getBoundingClientRect();
+            const pill = node.lastElementChild.getBoundingClientRect();
+            return {appended: node.lastElementChild.matches('[data-awl-language]'), text, pill};
+        });
+        assert.equal(inlinePill.appended, true, 'Language pill must follow the translation');
+        assert.ok(inlinePill.pill.x > inlinePill.text.x + inlinePill.text.width, 'Inline pill needs a small gap');
+        assert.ok(Math.abs(inlinePill.pill.y - inlinePill.text.y) < 5, 'Pill must share the translation line');
+        // A native mutation must still inspect hidden originals without removing
+        // translations or translating them again.
+        await page.locator('#first').evaluate(row => row.classList.add('native-update'));
+        await page.waitForTimeout(200);
+        assert.equal(await page.locator('#first [data-awl-primary]').count(), 1);
+        assert.equal(await page.evaluate(() => window.sentRequests.length), beforeAppearance);
+        await appearance(false, false, false);
+        assert.equal(await page.locator('#first [data-awl-language]').isVisible(), false);
+        assert.equal(await page.locator('#first .text-fragment').isVisible(), false);
+        await appearance(true, true);
+        assert.equal(await page.locator('#first .text-fragment').isVisible(), true);
+        assert.equal(await page.locator('#first [data-awl-original] > [data-awl-language]').count(), 1);
+        assert.deepEqual(await layout('first'), firstLayout, 'Showing originals must restore the existing layout');
+        assert.equal(await page.evaluate(() => window.sentRequests.length), beforeAppearance);
         if (process.env.PREVIEW_DIRECTORY) {
             fs.mkdirSync(process.env.PREVIEW_DIRECTORY, {recursive: true});
             await add('preview', 'This is another message in English.');
@@ -149,7 +175,11 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
             await page.screenshot({path: path.join(process.env.PREVIEW_DIRECTORY, 'chat-dark.png')});
             await page.evaluate(() => { document.body.style.background = '#f7f7f8'; document.body.style.color = '#242429'; });
             await page.screenshot({path: path.join(process.env.PREVIEW_DIRECTORY, 'chat-light.png')});
+            await appearance(true, true, false);
+            await page.screenshot({path: path.join(process.env.PREVIEW_DIRECTORY, 'chat-translation-only-light.png')});
             await page.evaluate(() => { document.body.style.background = ''; document.body.style.color = ''; });
+            await page.screenshot({path: path.join(process.env.PREVIEW_DIRECTORY, 'chat-translation-only-dark.png')});
+            await appearance(true, true);
         }
         await page.evaluate(script);
         await page.waitForTimeout(300);
@@ -198,6 +228,38 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.locator('#rich a').click();
         assert.equal(await page.evaluate(() => window.linkClicks), 1, 'Native original link handler was lost');
 
+        await appearance(true, true, false);
+        assert.equal(await page.locator('#rich a').isVisible(), false);
+        assert.equal(await page.locator('#rich img').isVisible(), false);
+        assert.equal(await page.locator('#rich .mention-fragment').isVisible(), false);
+        await add('compact', 'Original while waiting');
+        await page.waitForSelector('#compact [data-awl-translation]');
+        assert.equal(await page.locator('#compact .text-fragment').isVisible(), true, 'Pending messages must remain readable');
+        await translated('compact');
+        assert.equal(await page.locator('#compact .text-fragment').isVisible(), false);
+        await page.locator('#compact .text-fragment').evaluate(node => { node.textContent = 'Edited original'; });
+        await page.waitForFunction(() => document.querySelector('#compact [data-awl-primary] > span:first-child')?.textContent === 'Перевод: Edited original');
+        assert.equal(await page.locator('#compact .text-fragment').isVisible(), false);
+        // Native CSS hiding must revoke a translation even while our CSS hides
+        // the same fragment. Ignoring visibility on hidden originals is unsafe.
+        await page.locator('#compact .text-fragment').evaluate(node => { node.style.display = 'none'; });
+        await page.waitForFunction(() => !document.querySelector('#compact [data-awl-translation]'));
+        assert.equal(await page.locator('#compact[data-awl-hide-original]').count(), 0);
+        await add('skipped', 'Уже на русском');
+        await page.waitForSelector('#skipped [data-awl-translation]');
+        await page.waitForFunction(() => !document.querySelector('#skipped [data-awl-translation]'));
+        assert.equal(await page.locator('#skipped .text-fragment').isVisible(), true, 'Skipped messages must stay visible');
+        await page.locator('#rich').evaluate(row => row.classList.add('chat-line__message--deleted'));
+        await page.waitForFunction(() => !document.querySelector('#rich [data-awl-translation]'));
+        assert.equal(await page.locator('#rich[data-awl-hide-original]').count(), 0, 'Moderation must remove hidden-original styling');
+        await page.locator('#rich').evaluate(row => row.classList.remove('chat-line__message--deleted'));
+        await translated('rich');
+        await appearance(true, true);
+        await page.locator('#rich a').click();
+        assert.equal(await page.evaluate(() => window.linkClicks), 2, 'Restored native link handler was lost');
+        assert.equal(await page.evaluate(() => window.richNodes.every(node =>
+            node.parentElement === document.querySelector('#rich [data-a-target="chat-line-message-body"]'))), true);
+
         // Unknown layouts with controls mixed between fragments retain the
         // original ordering rather than resizing/repositioning those controls.
         await add('controls', 'First fragment');
@@ -208,6 +270,9 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         });
         await page.waitForFunction(() => document.querySelector('#controls [data-awl-translation] > span'));
         assert.equal(await page.locator('#controls [data-awl-primary], #controls [data-awl-source]').count(), 0);
+        await appearance(true, true, false);
+        assert.equal(await page.locator('#controls button').isVisible(), true, 'Unfamiliar markup must never hide controls');
+        await appearance(true, true);
 
         await add('blocked', 'Hidden user', 'chat-line__message--blocked');
         await add('hidden', 'Hidden content');
@@ -240,10 +305,13 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.evaluate(() => document.querySelector('#chat').replaceChildren());
         await page.waitForTimeout(300);
         assert.equal(await page.locator('[data-awl-translation]').count(), 0);
+        await appearance(true, true, false);
         await batch('live', 200);
         await page.waitForFunction(() => [...document.querySelectorAll('[data-awl-translation]')]
-            .filter(node => node.lastElementChild?.textContent.startsWith('Перевод:')).length === 200, null, {timeout: 15000});
+            .filter(node => node.querySelector('span:not([data-awl-language])')?.textContent.startsWith('Перевод:')).length === 200, null, {timeout: 15000});
+        assert.equal(await page.locator('[data-awl-hide-original]').count(), 200);
         assert.equal(await page.evaluate(() => !!window.__awlInterpretwitch), true, 'Live burst disconnected the bridge');
+        await appearance(true, true);
 
         // Restarting with history catches up only the latest five. Even history
         // beyond the 200-row work window stays skipped if it later enters it.
@@ -346,6 +414,10 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         const originalBottom = (await page.locator('#following .text-fragment').boundingBox());
         const composerTop = (await page.locator('#composer').boundingBox()).y;
         assert.ok(originalBottom.y + originalBottom.height <= composerTop, 'Original must remain fully above the chat input');
+        await appearance(true, true, false);
+        assert.ok(await bottomGap() <= 2, 'Hiding originals must preserve live follow');
+        await appearance(true, true);
+        assert.ok(await bottomGap() <= 2, 'Restoring originals must preserve live follow');
 
         // Scrolling away while a reply is pending must win over auto-follow.
         await add('reading', 'Another message with a delayed translation while the viewer scrolls back through history.');
@@ -357,6 +429,9 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         assert.equal(await page.locator('#composer input').evaluate(input => input === document.activeElement), true, 'Translation must not steal input focus');
         await appearance(false, false);
         assert.equal(await page.locator('#scrollport').evaluate(port => port.scrollTop), 40, 'Appearance edits must respect reading history');
+        await appearance(true, true, false);
+        assert.equal(await page.locator('#scrollport').evaluate(port => port.scrollTop), 40, 'Hiding originals must respect reading history');
+        await appearance(true, true);
 
         // Short, initially non-scrolling chat can first overflow on translation.
         await page.evaluate(() => {
@@ -378,6 +453,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.evaluate(script);
         await add('handled', 'Already handled message');
         await translated('handled');
+        await appearance(true, true, false);
         const handledRequests = await page.evaluate(() => window.sentRequests.length);
         await page.evaluate(() => {
             for (const ready of [false, true]) window.testSocket.dispatchEvent(new MessageEvent('message', {
@@ -387,6 +463,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.waitForTimeout(300);
         assert.equal(await page.evaluate(() => window.sentRequests.length), handledRequests, 'Recovery replayed an old message');
         assert.equal(await page.locator('#handled [data-awl-translation]').count(), 0);
+        assert.equal(await page.locator('#handled .text-fragment').isVisible(), true, 'Helper recovery must restore hidden originals');
         await add('recovered', 'New message after recovery');
         await translated('recovered');
 
@@ -406,16 +483,20 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.waitForFunction(() => document.querySelector('[data-awl-health]')?.textContent.includes('Unavailable'));
         assert.equal(await page.locator('[data-awl-translation], [data-awl-source], [data-awl-original], [data-awl-group]').count(), 0);
         assert.equal(await page.locator('#layoutfault .text-fragment').textContent(), 'Native message during a script failure');
+        assert.equal(await page.locator('#recovered .text-fragment').isVisible(), true, 'Page failure must restore hidden originals');
         await page.locator('#composer input').fill('Still able to type');
         await add('unaffected', 'Native chat keeps flowing');
         assert.equal(await page.locator('#unaffected .text-fragment').textContent(), 'Native chat keeps flowing');
         await page.evaluate(script);
         await translated('unaffected');
+        await appearance(true, true, false);
 
         // Losing the socket must immediately revoke health and restore originals.
         await page.evaluate(() => window.testSocket.close());
         await page.waitForFunction(() => document.querySelector('[data-awl-health]')?.textContent.includes('Unavailable'));
         assert.equal(await page.locator('[data-awl-translation], [data-awl-source], [data-awl-original], [data-awl-group]').count(), 0);
+        assert.equal(await page.locator('[data-awl-hide-original]').count(), 0);
+        assert.equal(await page.locator('#unaffected .text-fragment').isVisible(), true, 'Socket loss must restore hidden originals');
         await page.evaluate(() => window.__awlInterpretwitch.stop());
         assert.equal(await page.locator('[data-awl-health], style[data-awl-style]').count(), 0);
 
@@ -431,7 +512,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         assert.equal(await page.locator('#silent .text-fragment').textContent(), 'Hold for timeout');
         await page.evaluate(() => window.__awlInterpretwitch.stop());
         assert.deepEqual(errors, []);
-        console.log('Chromium + native bridge: translations, layout, scrolling, selection, moderation, five-message startup/reconnect/model catch-up, delayed history, 200-message live burst, passive health, script exceptions, socket loss, reply timeout, recovery without replay and native chat continuity passed.');
+        console.log('Chromium + native bridge: translations, original toggle and inline language pills, native edits and moderation while originals are hidden, layout, scrolling, selection, five-message startup/reconnect/model catch-up, delayed history, 200-message live burst, passive health, script exceptions, socket loss, reply timeout, recovery without replay and native chat continuity passed.');
     } catch (error) {
         console.error(diagnostics.join('\n'));
         if (page) console.error(await page.evaluate(() => ({attached: !!window.__awlInterpretwitch,

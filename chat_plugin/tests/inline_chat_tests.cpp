@@ -176,6 +176,10 @@ int main(int argc, char **argv) {
                 if (m.original == "Hold for timeout")
                     return;
                 QTimer::singleShot(180, &bridge, [&, m] {
+                    if (m.original == "Уже на русском") {
+                        bridge.deliver(m.id, {});
+                        return;
+                    }
                     const QString text = m.original == "Hello from chat" ? "Всем привет!"
                                          : m.original == "This is another message in English."
                                              ? "Это ещё одно сообщение на английском."
@@ -223,14 +227,18 @@ int main(int argc, char **argv) {
         });
         open(client, url);
         wait_for([&] {
-            return !replies.isEmpty();
+            return replies.size() >= 2;
         });
         check(replies.front()["ready"].toBool(), "Ready state missing");
-        bridge.set_appearance(false, false);
+        check(replies.back()["type"] == "appearance" && replies.back()["show_original"].toBool(),
+              "Original messages must be shown by default on connection");
+        bridge.set_appearance(false, false, false);
         wait_for([&] {
             return replies.back()["type"] == "appearance" && !replies.back()["background"].toBool();
         });
         check(!replies.back()["language_label"].toBool(), "Language label preference missing");
+        check(replies.back().contains("show_original") && !replies.back()["show_original"].toBool(),
+              "Show original preference missing");
         QWebSocket second;
         open(second, url);
         spin(100);
@@ -262,7 +270,8 @@ int main(int argc, char **argv) {
             return offered == 26;
         });
         // The page's stop reason is logged and does not itself drop the page.
-        client.sendTextMessage(R"({"type":"stopping","reason":"timeout","pending":3,"detail":"x"})");
+        client.sendTextMessage(
+            R"({"type":"stopping","reason":"timeout","pending":3,"detail":"x"})");
         wait_for([&] {
             return logged_any("no reply for 20 s (page waiting for 3");
         });
