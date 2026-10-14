@@ -57,10 +57,24 @@ int main(int argc, char **argv) {
             if (mode == "status-flood")
                 for (;;)
                     reply({{"type", "status"}, {"text", "Still loading"}});
-            reply({{"type", "ready"},
-                   {"ok", mode != "unavailable"},
-                   {"device", command["device"]},
-                   {"fallback", ""}});
+            QJsonObject ready{{"type", "ready"},
+                              {"ok", mode != "unavailable"},
+                              {"device", command["device"]},
+                              {"fallback", ""}};
+            // GPU requested without cuBLAS: CPU with a "libraries" issue until the
+            // supervisor asks for the GPU pack download.
+            if (mode == "gpu-libraries" && command["device"] == "gpu") {
+                if (command["gpu_download"].toBool()) {
+                    QFile marker(QDir(command["directory"].toString()).filePath("gpu-download"));
+                    if (!marker.open(QIODevice::WriteOnly))
+                        return 2;
+                } else {
+                    ready["device"] = "cpu";
+                    ready["gpu_issue"] = "libraries";
+                    ready["fallback"] = "GPU support needs a one-time download.";
+                }
+            }
+            reply(ready);
         } else if (type == "clear")
             reply({{"type", "cleared"}});
         else if (type == "cancel")

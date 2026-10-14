@@ -17,7 +17,7 @@ set(AWL_CT2_LIBRARY "${AWL_CT2_DEFAULT_LIBRARY}" CACHE FILEPATH "CTranslate2 nat
 option(AWL_BUILD_PLUGIN "Build the OBS dock" ON)
 option(AWL_OBS_SDK "Windows: use an OBS SDK CMake package instead of the installed OBS" OFF)
 if(MSVC)
-  add_compile_options(/utf-8 /Zc:__cplusplus)
+  add_compile_options(/utf-8 $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>)
 endif()
 include(CTest)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Network WebSockets)
@@ -53,7 +53,15 @@ add_library(awl-chat-model-files STATIC src/model_files.cpp src/model_download.c
 target_include_directories(awl-chat-model-files PUBLIC src)
 target_link_libraries(awl-chat-model-files PUBLIC awl-chat-core)
 if(WIN32)
-  target_link_libraries(awl-chat-model-files PRIVATE winhttp)
+  # Optional NVIDIA cuBLAS pack for GPU mode: download, verify and inflate in the
+  # helper. Only zlib's decompression sources are compiled.
+  add_library(awl-zlib STATIC "${AWL_DEPS}/zlib/adler32.c" "${AWL_DEPS}/zlib/crc32.c"
+    "${AWL_DEPS}/zlib/inffast.c" "${AWL_DEPS}/zlib/inflate.c" "${AWL_DEPS}/zlib/inftrees.c"
+    "${AWL_DEPS}/zlib/zutil.c")
+  target_include_directories(awl-zlib PUBLIC "${AWL_DEPS}/zlib")
+  target_compile_definitions(awl-zlib PRIVATE _CRT_SECURE_NO_DEPRECATE _CRT_NONSTDC_NO_DEPRECATE)
+  target_sources(awl-chat-model-files PRIVATE src/gpu_runtime.cpp)
+  target_link_libraries(awl-chat-model-files PRIVATE winhttp awl-zlib)
 else()
   find_package(CURL REQUIRED)
   target_link_libraries(awl-chat-model-files PRIVATE CURL::libcurl)

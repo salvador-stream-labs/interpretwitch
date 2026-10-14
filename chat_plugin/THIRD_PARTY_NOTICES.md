@@ -26,6 +26,23 @@ already installed with OBS; no CEF/browser runtime is bundled.
   https://github.com/simd-everywhere/simde/tree/c3d7abfaba6729a8b11d09a314b34a4db628911d
 - **Qt WebSockets 6.11.1**, The Qt Company, used under LGPL-3.0 with applicable
   exceptions/notices from the source archive. https://github.com/qt/qtwebsockets/tree/v6.11.1
+- **zlib 1.3.1**, Jean-loup Gailly and Mark Adler, zlib licence (`licenses/zlib-Zlib.txt`).
+  Windows only: its decompression sources are statically linked into the translation
+  helper to unpack the optional GPU support download. Pinned in
+  `dependencies-windows.lock.json`; source is in `source.zip`.
+  https://github.com/madler/zlib/tree/v1.3.1
+
+Optional GPU support on Windows is downloaded separately when the user clicks
+Download GPU support:
+
+- **NVIDIA cuBLAS 12.9.1.4** for Windows x86_64, NVIDIA Corporation, under the
+  [NVIDIA CUDA Toolkit End User License Agreement](https://docs.nvidia.com/cuda/eula/index.html).
+  It is not bundled with Interpretwitch. The official redistributable archive is
+  downloaded from `developer.download.nvidia.com` and checked against the size and
+  SHA-256 in `data/gpu-windows.lock.json` (which match NVIDIA's
+  [12.9.1 manifest](https://developer.download.nvidia.com/compute/cuda/redist/redistrib_12.9.1.json)).
+  Only `cublas64_12.dll`, `cublasLt64_12.dll` and NVIDIA's licence (`LICENSE.txt`) are
+  extracted, into a per-user folder used only by the translation helper.
 
 Models are downloaded separately when the user clicks Download model:
 

@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "cublas-12.9.1.4-windows-x86_64",
+  "component": "NVIDIA cuBLAS 12.9.1.4 for Windows x86_64",
+  "license": "NVIDIA CUDA Toolkit End User License Agreement",
+  "license_url": "https://docs.nvidia.com/cuda/eula/index.html",
+  "manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_12.9.1.json",
+  "archive": {
+    "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-12.9.1.4-archive.zip",
+    "size": 549755186,
+    "sha256": "d534d98b0b453a98914dbf3adf47d7e84b55037abf02f87466439e1dcef581ed"
+  },
+  "files": [
+    {
+      "entry": "libcublas-windows-x86_64-12.9.1.4-archive/bin/cublas64_12.dll",
+      "filename": "cublas64_12.dll",
+      "size": 102518272,
+      "sha256": "90052a83efd1b57a8e3616a6590b335855f81b814a4f16eecb7b5bf6d1b1d4eb"
+    },
+    {
+      "entry": "libcublas-windows-x86_64-12.9.1.4-archive/bin/cublasLt64_12.dll",
+      "filename": "cublasLt64_12.dll",
+      "size": 668669952,
+      "sha256": "c3a05ea244c937314afec09f87b91f814c7e27977681f6c67eb51bb06ced3a4a"
+    },
+    {
+      "entry": "libcublas-windows-x86_64-12.9.1.4-archive/LICENSE",
+      "filename": "LICENSE.txt",
+      "size": 67876,
+      "sha256": "72c22161fc1ebf242443d45158a7dd382d68597b00eeb7a7f539be5c6114be33"
+    }
+  ]
+}

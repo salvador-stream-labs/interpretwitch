@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QProcessEnvironment>
+#include <QStringList>
 #include <algorithm>
 #include <chrono>
 #include <utility>
@@ -64,17 +65,27 @@ Worker::Worker(QString manifest, QString directory, QObject *parent, QString hel
         }
         log_event(LogLevel::Info,
                   QString("Translation worker started (process %1)").arg(process_.processId()));
-        send({{"type", "prepare"},
-              {"manifest",
-               QFileInfo(profile_manifest(manifest_, profile_, target_)).absoluteFilePath()},
-              {"directory",
-               QFileInfo(profile_directory(directory_, profile_, target_)).absoluteFilePath()},
-              {"model_id", model_id(profile_, target_)},
-              {"target_language", target_},
-              {"download", download_},
-              {"locale", ui_locale()},
-              {"device", launch_device_ == RunOn::GPU ? "gpu" : "cpu"}},
-             download_ ? limits_.download_ms : limits_.startup_ms);
+        QJsonObject request{
+            {"type", "prepare"},
+            {"manifest",
+             QFileInfo(profile_manifest(manifest_, profile_, target_)).absoluteFilePath()},
+            {"directory",
+             QFileInfo(profile_directory(directory_, profile_, target_)).absoluteFilePath()},
+            {"model_id", model_id(profile_, target_)},
+            {"target_language", target_},
+            {"download", download_},
+            {"locale", ui_locale()},
+            {"device", launch_device_ == RunOn::GPU ? "gpu" : "cpu"}};
+        if (!gpu_manifest_.isEmpty() && !gpu_directory_.isEmpty()) {
+            request["gpu_manifest"] = QFileInfo(gpu_manifest_).absoluteFilePath();
+            request["gpu_directory"] = QFileInfo(gpu_directory_).absoluteFilePath();
+            request["gpu_download"] = gpu_download_ && launch_device_ == RunOn::GPU;
+        }
+        // The optional GPU pack is about 550 MB; allow slower connections.
+        send(request, gpu_download_ && launch_device_ == RunOn::GPU
+                          ? std::max(limits_.gpu_download_ms, limits_.download_ms)
+                      : download_ ? limits_.download_ms
+                                  : limits_.startup_ms);
     });
     connect(&process_, &QProcess::readyReadStandardOutput, this, &Worker::read);
     connect(&process_, &QProcess::errorOccurred, this, [this](auto error) {
@@ -137,7 +148,15 @@ void Worker::stop() {
     else if (wanted_)
         restart_.start(failures_ ? limits_.restart_ms : 0);
 }
-void Worker::prepare(bool download, RunOn device, ModelProfile profile, QString target) {
+void Worker::set_gpu_support(QString manifest, QString directory) {
+    gpu_manifest_ = std::move(manifest);
+    gpu_directory_ = std::move(directory);
+}
+void Worker::prepare(bool download, RunOn device, ModelProfile profile, QString target,
+                     bool gpu_download) {
+    gpu_download_ = gpu_download && device == RunOn::GPU;
+    gpu_issue_.clear();
+    gpu_detail_.clear();
     if (!supports_target(profile, target)) {
         shutdown();
         if (status)
@@ -280,15 +299,28 @@ void Worker::receive(const QJsonObject &value) {
     if (type == "ready" && phase_ == Phase::Preparing && value["ok"].isBool()) {
         const auto device = value["device"].toString();
         const auto fallback = value["fallback"].toString();
+        // Known GPU issue codes only; mirrors gpu_runtime's codes (helper-only module).
+        static const QStringList issues{"",       "no-driver", "no-device", "old-driver",
+                                        "libraries", "memory", "unknown"};
+        const auto issue = value["gpu_issue"].toString();
+        const auto detail = value["gpu_detail"].toString();
         if ((device != "cpu" && device != "gpu") || fallback.size() > limits::status_characters ||
             value["model_id"].toString() != model_id(profile_, target_) ||
-            value["target_language"].toString() != target_)
+            value["target_language"].toString() != target_ || !issues.contains(issue) ||
+            detail.size() > limits::status_characters)
             throw std::runtime_error("Invalid worker device.");
         actual_ = device == "gpu" ? RunOn::GPU : RunOn::CPU;
+        gpu_issue_ = issue;
+        gpu_detail_ = detail;
+        if (!issue.isEmpty())
+            log_event(LogLevel::Warning,
+                      QString("GPU not used (%1)%2")
+                          .arg(issue, detail.isEmpty() ? QString() : ": " + detail));
         const bool good = value["ok"].toBool();
         if (good) {
             phase_ = Phase::Idle;
             download_ = false;
+            gpu_download_ = false;
         } else {
             wanted_ = false;
             discard_waiting();
@@ -386,6 +418,7 @@ void Worker::fail(const QString &reason, bool recover) {
     wanted_ = retry;
     if (retry && requested_ == RunOn::GPU) {
         launch_device_ = RunOn::CPU;
+        gpu_download_ = false;
         recovery_reason_ = ui_text("GPU worker stopped. Translation restarted on CPU.");
     }
     stop();

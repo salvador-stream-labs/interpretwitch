@@ -49,7 +49,7 @@ def main():
         for name in ['Install Interpretwitch.command', 'README.md', 'BUILD.md', 'LICENSE', '.gitignore']:
             z.write(ROOT / name, name)
         # QtWebSockets corresponding source is shipped alongside the library.
-        for name in ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext']:
+        for name in ['qtwebsockets', 'ctranslate2', 'sentencepiece', 'fasttext', 'zlib']:
             z.write(ROOT / '.phase0/chat/archives-win' / name, 'dependency-sources/' + name + '.tar.gz')
     files = [p for p in STAGE.rglob('*') if p.is_file()]
     if any(p.suffix in ('.bin', '.ftz', '.spm', '.model') for p in files):

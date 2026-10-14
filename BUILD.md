@@ -140,10 +140,14 @@ with Inno Setup. Quit OBS and run that installer. It installs into
 backs up an existing copy to `%ProgramData%\obs-studio\awl-plugin-backups`, and
 leaves cached models and settings in `%APPDATA%\obs-studio\plugin_config\awl-chat`.
 
-The package ships `Qt6WebSockets.dll` beside the plugin; base Qt DLLs are OBS's own. The installer is unsigned. NVIDIA mode
-additionally needs CUDA 12 runtime libraries (cuBLAS) on `PATH` and a driver;
-without them the helper falls back to CPU. NVIDIA execution and gameplay testing
-remain outstanding.
+The package ships `Qt6WebSockets.dll` beside the plugin; base Qt DLLs are OBS's own.
+The installer is unsigned. NVIDIA mode needs NVIDIA's CUDA 12 cuBLAS libraries,
+which are not part of the package or the graphics driver: users download them from
+the settings window (**Download GPU support**, pinned in
+`chat_plugin/data/gpu-windows.lock.json`), or an existing CUDA 12 install is used.
+On Windows CTest also runs `chat-gpu-fixture` and `chat-gpu-pack`, which exercise
+the pack installer against a generated local archive. Gameplay testing remains
+outstanding.
 
 The optional real-model bridge check now switches Russian → Heavy English → Light
 French through the settings controls. It needs the cached Russian, Heavy and

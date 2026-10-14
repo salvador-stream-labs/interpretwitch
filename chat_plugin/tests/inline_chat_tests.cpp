@@ -7,7 +7,9 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QNetworkRequest>
+#include <QPushButton>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QTemporaryDir>
 #include <QThread>
 #include <QUuid>
@@ -365,6 +367,49 @@ int main(int argc, char **argv) {
                       loaded == 2,
                   "Page reconnect bypassed the helper's failure limit");
         }
+#ifdef _WIN32
+        if (argc == 2) {
+            // GPU selected without cuBLAS: CPU translation, Download GPU support,
+            // then a GPU start that requested the pack download.
+            QTemporaryDir cache;
+            {
+                QSettings saved(cache.filePath("settings.ini"), QSettings::IniFormat);
+                saved.setValue("run_on", "gpu");
+            }
+            Panel gpu("gpu-libraries", cache.path(), cache.filePath("settings.ini"), nullptr,
+                      false, QString::fromLocal8Bit(argv[1]), [&](const QString &value) {
+                          script = value;
+                          return true;
+                      });
+            gpu.start();
+            QWebSocket page;
+            bool available = false;
+            QObject::connect(&page, &QWebSocket::textMessageReceived, [&](QString text) {
+                const auto value = QJsonDocument::fromJson(text.toUtf8()).object();
+                if (value["type"] == "state")
+                    available = value["ready"].toBool();
+            });
+            open(page, endpoint(script));
+            auto button = gpu.findChild<QPushButton *>("interpretwitchGpuDownload");
+            auto notice = gpu.findChild<QLabel *>("interpretwitchGpuNotice");
+            auto help = gpu.findChild<QLabel *>("interpretwitchDeviceHelp");
+            wait_for([&] {
+                return available && !button->isHidden();
+            });
+            check(!notice->isHidden() && notice->text().contains("docs.nvidia.com/cuda/eula") &&
+                      help->text().contains("one-time download") && button->isEnabled(),
+                  "Missing cuBLAS did not offer the GPU support download");
+            available = false;
+            button->click();
+            wait_for([&] {
+                return available && QFile::exists(QDir(cache.path()).filePath("gpu-download"));
+            });
+            check(button->isHidden() && notice->isHidden() &&
+                      gpu.findChild<QLabel *>("awlChatModelStatus")->text().contains("GPU"),
+                  "GPU support download did not finish on GPU");
+            page.abort();
+        }
+#endif
 
         QTemporaryDir temp;
         Panel panel("missing-model", temp.path(), temp.filePath("settings.ini"), nullptr, true, {},

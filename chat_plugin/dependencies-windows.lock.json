@@ -9,6 +9,11 @@
     "sha256": "35d3cd0979d65664fada7119fdb612eca7c34b61a1623a330caec74bf72626c4",
     "size": 16184372
   },
+  "zlib": {
+    "url": "https://codeload.github.com/madler/zlib/tar.gz/refs/tags/v1.3.1",
+    "sha256": "17e88863f3600672ab49182f217281b6fc4d3c762bde361935e436a95214d05c",
+    "size": 1572744
+  },
   "ctranslate2_windows_wheel": {
     "name": "ctranslate2",
     "version": "4.8.2",

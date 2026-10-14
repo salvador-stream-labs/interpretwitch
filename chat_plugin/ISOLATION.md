@@ -79,6 +79,11 @@ The Windows implementation uses a private job object limited to one process and
 4 GiB of committed host memory. It does not put OBS in that job or limit OBS's
 resources. This is a defensive ceiling, not expected memory use, and does not cap
 GPU VRAM. Loading Heavy on CPU peaks near 2 GiB, which a 2 GiB ceiling rejected.
+CUDA is only initialised in the helper. Before CTranslate2 creates a CUDA context,
+the helper checks the NVIDIA driver (`nvcuda.dll` from System32 only), its CUDA
+version, the device count and that cuBLAS 12 loads. The optional cuBLAS pack is
+downloaded, verified and extracted by the helper, and its folder is added to the
+helper's own `PATH` only; OBS's process and the system environment are unchanged.
 Failure to establish the job stops helper startup. See
 [Windows release preparation](RELEASE_WINDOWS.md) for Windows validation status.
 Mac does not currently impose a comparable hard memory ceiling; the model, queue

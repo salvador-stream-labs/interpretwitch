@@ -22,7 +22,7 @@ are explicit and verified; the package itself contains no model weights.
 | Resource usage: Light | English chat → Russian, French, German, Spanish or Ukrainian. Approximately 80–84 MB per selected pair; two CPU inference threads. |
 | Resource usage: Heavy | Multilingual chat → any of the model’s 100 targets, approximately 497 MB downloaded once. One CPU inference thread. More RAM and work per message. |
 | Translate into | Russian by default. Light lists only verified small packs; Heavy lists all supported targets. Already-target-language messages stay unchanged. |
-| Run on | CPU by default. NVIDIA GPU can be selected on Windows with CPU fallback; this revision needs Windows/GPU validation. Mac GPU is unsupported. |
+| Run on | CPU by default and recommended for most chats. NVIDIA GPU can be selected on Windows; translation falls back to CPU with a specific reason when GPU cannot be used (see [GPU on Windows](#gpu-on-windows)). Mac GPU is unsupported. |
 | Show detected language | A subtle label such as АН (English, when translating into Russian) precedes the smaller original text below the translation. Hover for the full language name. Detection can be wrong, especially for short or mixed-language messages. |
 | Subtle background around translations | A faint theme-aware background encloses each successfully translated original/translation pair. |
 
@@ -60,6 +60,25 @@ Light pairs have separate download/cache directories and remain cached for reuse
 Changing the selection never downloads automatically: use **Download model** for
 a missing pack. If a Heavy target has no Light pack, switching to Light restores
 the last available Light choice (Russian initially). The UI shows the resulting target.
+
+## GPU on Windows
+
+GPU mode needs an NVIDIA GPU, a driver that supports CUDA 12 or later (a newer
+driver that advertises CUDA 13 is fine; do not downgrade it) and NVIDIA's CUDA 12
+cuBLAS libraries. The graphics driver does not include cuBLAS. When GPU is selected
+and cuBLAS is missing, the settings offer **Download GPU support**: a one-time
+download of NVIDIA cuBLAS 12.9.1.4 (about 550 MB) directly from NVIDIA, under
+NVIDIA's CUDA Toolkit licence. It is checked against a pinned size and SHA-256;
+only `cublas64_12.dll`, `cublasLt64_12.dll` and NVIDIA's licence are extracted, into
+`%LOCALAPPDATA%\awl-chat\gpu\cublas-12.9.1.4-windows-x86_64` (about 740 MB). No
+administrator rights, CUDA Toolkit or system `PATH` change are needed; only the
+translation helper uses the files. An existing CUDA 12 installation is used if present.
+Delete that folder to remove GPU support. Cancelling the download keeps CPU translation.
+
+GPU is reported ready only after a short test translation succeeds. Otherwise the
+settings say why translation uses CPU: GPU support not downloaded, driver too old
+(with a link to NVIDIA's drivers), no NVIDIA driver or GPU, not enough GPU memory,
+or an unknown error (its text is in the tooltip and OBS log).
 
 ## Privacy and upgrades
 

@@ -5,8 +5,11 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QDir>
+#include <QFileInfo>
 #include <QScrollArea>
 #include <QStandardItemModel>
+#include <QStandardPaths>
 #include <QSignalBlocker>
 #include <algorithm>
 #include <QVBoxLayout>
@@ -16,6 +19,13 @@ Panel::Panel(QString manifest, QString cache, QString settings, QWidget *parent,
              QString helper, InlineChat::Execute execute)
     : QDialog(parent), settings_(settings, QSettings::IniFormat), preview_(preview) {
     worker_ = std::make_unique<Worker>(manifest, cache, nullptr, std::move(helper));
+#ifdef _WIN32
+    // Optional cuBLAS pack: shipped catalogue, per-user (non-roaming) storage.
+    worker_->set_gpu_support(
+        QFileInfo(manifest).dir().filePath("gpu-windows.lock.json"),
+        QDir(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation))
+            .filePath("awl-chat/gpu"));
+#endif
     bridge_ = std::make_unique<InlineChat>(std::move(execute));
     build_ui();
     bind_worker();
@@ -52,7 +62,14 @@ Panel::Panel(QString manifest, QString cache, QString settings, QWidget *parent,
         prepare_model(true);
     });
     connect(cancel_, &QPushButton::clicked, this, [this] {
+        const bool gpu = gpu_downloading_;
         worker_->cancel_download();
+        // Cancelling the optional GPU download keeps CPU translation running.
+        if (gpu)
+            prepare_model(false);
+    });
+    connect(gpu_download_, &QPushButton::clicked, this, [this] {
+        prepare_model(false, true);
     });
     for (auto checkbox : {language_label_, background_})
         connect(checkbox, &QCheckBox::toggled, this, [this] {
@@ -140,6 +157,21 @@ void Panel::build_ui() {
     devices->addRow(ui_text("Run on"), run_on_);
     controls->addLayout(devices);
     device_help_ = label({}, controls);
+    device_help_->setObjectName("interpretwitchDeviceHelp");
+    gpu_notice_ = new QLabel(translation);
+    gpu_notice_->setObjectName("interpretwitchGpuNotice");
+    gpu_notice_->setWordWrap(true);
+    gpu_notice_->setTextFormat(Qt::RichText);
+    gpu_notice_->setOpenExternalLinks(true);
+    gpu_notice_->hide();
+    controls->addWidget(gpu_notice_);
+    gpu_download_ = new QPushButton(ui_text("Download GPU support"), translation);
+    gpu_download_->setObjectName("interpretwitchGpuDownload");
+    gpu_download_->hide();
+    auto gpu_actions = new QHBoxLayout;
+    gpu_actions->addWidget(gpu_download_);
+    gpu_actions->addStretch();
+    controls->addLayout(gpu_actions);
     update_device_help();
     model_ =
         label(ui_text("Download the selected model once. Existing models are reused."), controls);
@@ -202,18 +234,23 @@ void Panel::bind_worker() {
         run_on_->setEnabled(!busy);
         resource_usage_->setEnabled(!busy);
         target_language_->setEnabled(!busy);
-        if (!busy)
+        if (!busy) {
             cancel_->hide();
+            gpu_downloading_ = false;
+        }
         download_->setEnabled(enabled_->isChecked() && !busy);
         download_->setVisible(!ready);
         if (ready) {
             model_->setText(ui_text("Local translation · %1").arg(run_on_name(actual)));
+            update_device_help();
+            // The helper explains why GPU was not used: missing cuBLAS, driver,
+            // device, memory, or an explicitly unknown failure (detail in tooltip).
             if (!fallback.isEmpty()) {
-                device_help_->setText(ui_text("GPU could not start. Using CPU. Check the NVIDIA "
-                                              "driver and GPU support in this build."));
-                device_help_->setToolTip(fallback);
+                device_help_->setText(fallback);
+                device_help_->setToolTip(worker_->gpu_detail());
             }
         }
+        update_gpu_actions();
         bridge_->set_ready(ready && enabled_->isChecked(),
                            ready                                ? ui_text("Ready")
                            : state == Worker::State::Recovering ? ui_text("Recovering")
@@ -310,6 +347,7 @@ void Panel::change_model() {
     bridge_->set_target(selected_target());
     if (!preview_ && enabled_->isChecked() && started_)
         prepare_model(false);
+    update_gpu_actions();
 }
 void Panel::update_device_help() {
     device_help_->setToolTip({});
@@ -324,14 +362,38 @@ void Panel::update_device_help() {
             : ui_text("Keeps your graphics card free for the game. Recommended for most chats."));
 #endif
 }
-void Panel::prepare_model(bool download) {
+void Panel::update_gpu_actions() {
+    // Offer only what can fix the reported problem; CPU users never see these.
+    const auto issue = selected_device() == RunOn::GPU ? worker_->gpu_issue() : QString();
+    const bool busy = model_state_ == Worker::State::Preparing ||
+                      model_state_ == Worker::State::Recovering;
+    gpu_download_->setVisible(issue == "libraries" && !gpu_downloading_);
+    gpu_download_->setEnabled(enabled_->isChecked() && !busy);
+    if (issue == "libraries")
+        gpu_notice_->setText(
+            ui_text("Downloads NVIDIA cuBLAS 12.9 (about 550 MB) directly from NVIDIA under the "
+                    "<a href=\"%1\">CUDA Toolkit licence</a>. It is stored for your Windows "
+                    "account only; no administrator rights are needed.")
+                .arg("https://docs.nvidia.com/cuda/eula/index.html"));
+    else if (issue == "old-driver")
+        gpu_notice_->setText(ui_text("<a href=\"%1\">Get NVIDIA driver</a>")
+                                 .arg("https://www.nvidia.com/Download/index.aspx"));
+    gpu_notice_->setVisible((issue == "libraries" && !gpu_downloading_) || issue == "old-driver");
+}
+void Panel::prepare_model(bool download, bool gpu_download) {
     if (model_state_ == Worker::State::Preparing || model_state_ == Worker::State::Recovering)
         return;
-    cancel_->setVisible(download);
+    gpu_download = gpu_download && selected_device() == RunOn::GPU;
+    gpu_downloading_ = gpu_download;
+    cancel_->setVisible(download || gpu_download);
     update_device_help();
     model_->setText(
-        ui_text("Preparing local translation · %1…").arg(run_on_name(selected_device())));
+        gpu_download
+            ? ui_text("Preparing GPU support download…")
+            : ui_text("Preparing local translation · %1…").arg(run_on_name(selected_device())));
     bridge_->set_target(selected_target());
-    worker_->prepare(download, selected_device(), selected_profile(), selected_target());
+    worker_->prepare(download, selected_device(), selected_profile(), selected_target(),
+                     gpu_download);
+    update_gpu_actions();
 }
 } // namespace awl::chat

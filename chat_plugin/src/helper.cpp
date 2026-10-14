@@ -14,6 +14,7 @@
 #include <mutex>
 #include <thread>
 #ifdef _WIN32
+#include "gpu_runtime.hpp"
 #define NOMINMAX
 #include <windows.h>
 #include <fcntl.h>
@@ -76,6 +77,41 @@ void read_commands(Input &input) {
         }
     }
 }
+#ifdef _WIN32
+struct GpuReadiness {
+    GpuIssue issue = GpuIssue::None;
+    int driver_cuda = 0;
+    QString text;
+};
+// Use (or, on request, install) the NVIDIA cuBLAS pack, then check the driver,
+// device and cuBLAS before CTranslate2 creates a CUDA context.
+GpuReadiness prepare_gpu(const QJsonObject &command, const std::atomic<bool> &cancel,
+                         const Status &say) {
+    const auto manifest = command["gpu_manifest"].toString();
+    const auto root = command["gpu_directory"].toString();
+    if (!manifest.isEmpty() && !root.isEmpty()) {
+        auto pack = installed_gpu_pack(manifest, root);
+        if (pack.isEmpty() && command["gpu_download"].toBool()) {
+            // Download only when cuBLAS is the one thing missing.
+            const auto before = probe_gpu();
+            if (before.issue != GpuIssue::Libraries)
+                return {before.issue, before.driver_cuda,
+                        gpu_issue_text(before.issue, before.driver_cuda)};
+            try {
+                pack = install_gpu_pack(manifest, root, cancel, say);
+            } catch (const std::exception &error) {
+                return {GpuIssue::Libraries, before.driver_cuda,
+                        ui_error(error.what(), "GPU support could not be installed. Try again.") +
+                            " " + ui_text("Translation uses CPU.")};
+            }
+        }
+        if (!pack.isEmpty())
+            use_gpu_pack(pack);
+    }
+    const auto probe = probe_gpu();
+    return {probe.issue, probe.driver_cuda, gpu_issue_text(probe.issue, probe.driver_cuda)};
+}
+#endif
 bool constrain_process() {
 #ifdef _WIN32
     _setmode(_fileno(stdin), _O_BINARY);
@@ -146,29 +182,60 @@ int main(int argc, char **argv) {
                 const auto target = command.value["target_language"].toString("ru");
                 const auto profile = model_profile(
                     command.value["model_id"].toString(model_id(ModelProfile::Light)));
+                // Optional GPU pack paths: absent, or absolute and bounded.
+                const auto optional_path = [&](const char *name) {
+                    const auto value = command.value.value(QLatin1String(name));
+                    return value.isUndefined() ||
+                           (value.isString() && QFileInfo(value.toString()).isAbsolute() &&
+                            value.toString().size() <= 32768);
+                };
                 if (!QFileInfo(manifest).isAbsolute() || !QFileInfo(directory).isAbsolute() ||
                     manifest.size() > 32768 || directory.size() > 32768 ||
+                    !optional_path("gpu_manifest") || !optional_path("gpu_directory") ||
+                    !(command.value.value("gpu_download").isUndefined() ||
+                      command.value.value("gpu_download").isBool()) ||
                     (device != "cpu" && device != "gpu") || !command.value["download"].isBool() ||
                     !profile || !supports_target(*profile, target) ||
                     command.value["model_id"].toString(model_id(ModelProfile::Light)) !=
                         model_id(*profile, target))
                     std::_Exit(2);
                 RunOn actual = device == "gpu" ? RunOn::GPU : RunOn::CPU;
-                QString fallback;
+                QString fallback, gpu_issue, gpu_detail;
                 try {
                     const std::atomic<bool> cancel{false};
                     if (prepare_models(manifest, directory, command.value["download"].toBool(),
                                        cancel, say, {}, *profile, target)) {
+#ifdef _WIN32
+                        if (actual == RunOn::GPU) {
+                            const auto gpu = prepare_gpu(command.value, cancel, say);
+                            if (gpu.issue != GpuIssue::None) {
+                                gpu_issue = gpu_issue_code(gpu.issue);
+                                fallback = gpu.text.left(limits::status_characters);
+                                actual = RunOn::CPU;
+                            }
+                        }
+#endif
                         say(ui_text("Loading local translation · %1…").arg(run_on_name(actual)));
                         try {
+                            // On GPU this includes a short warm-up translation, so
+                            // lazily loaded CUDA libraries fail here, not in chat.
                             translator =
                                 std::make_unique<Translator>(directory, actual, *profile, target);
                         } catch (const std::exception &error) {
                             if (actual != RunOn::GPU)
                                 throw;
+#ifdef _WIN32
+                            const auto issue = classify_gpu_error(error.what());
+                            gpu_issue = gpu_issue_code(issue);
+                            fallback = gpu_issue_text(issue).left(limits::status_characters);
+                            // An unknown failure stays explicitly unknown; keep its text.
+                            if (issue == GpuIssue::Unknown)
+                                gpu_detail = QString::fromUtf8(error.what()).left(300);
+#else
                             fallback =
                                 ui_error(error.what(), "GPU initialization failed. Using CPU.")
                                     .left(limits::status_characters);
+#endif
                             say(ui_text("GPU could not start. Loading CPU translation…"));
                             translator = std::make_unique<Translator>(directory, RunOn::CPU,
                                                                       *profile, target);
@@ -186,7 +253,9 @@ int main(int argc, char **argv) {
                         {"device", actual == RunOn::GPU ? "gpu" : "cpu"},
                         {"model_id", model_id(*profile, target)},
                         {"target_language", target},
-                        {"fallback", fallback}});
+                        {"fallback", fallback},
+                        {"gpu_issue", gpu_issue},
+                        {"gpu_detail", gpu_detail}});
             } else if (type == "translate" && translator) {
                 const auto message = ipc::message(command.value["message"].toObject());
                 const auto started = std::chrono::steady_clock::now();

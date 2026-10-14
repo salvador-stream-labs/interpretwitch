@@ -71,6 +71,8 @@ def main():
     for name in SHARED:
         extract_tar(fetch(name, shared[name]), DEPS / ('ct2' if name == 'ctranslate2' else name))
     extract_tar(fetch('obs_source', windows['obs_source']), DEPS / 'obs-studio')
+    # Inflate support for the optional NVIDIA GPU pack archive (helper only).
+    extract_tar(fetch('zlib', windows['zlib']), DEPS / 'zlib')
 
     qt = DEPS / 'qt'
     archive = fetch('qt', windows['qt'])
