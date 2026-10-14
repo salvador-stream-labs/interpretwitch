@@ -87,8 +87,21 @@ int main(int argc, char **argv) {
             check(translation_language("Русское сообщение", "ru", .99f, profile).isEmpty() &&
                       translation_language("uncertain words", "en", .1f, profile).isEmpty() &&
                       translation_language("unknown words", "xx", .99f, profile).isEmpty() &&
-                      translation_language("KEKW", "en", .99f, profile).isEmpty(),
+                      translation_language("KEKW", "", 0.f, profile).isEmpty(),
                   "Russian, uncertain, unsupported or emote text translated");
+            // One-word chat, with scores measured with lid.176.ftz ("" = no prediction).
+            check(translation_language("This.", "eo", .264f, profile, .166f) == "en" &&
+                      translation_language("Nice", "", 0.f, profile) == "en" &&
+                      translation_language("Same...", "", 0.f, profile) == "en" &&
+                      translation_language("Other.", "en", .992f, profile, .002f) == "en" &&
+                      translation_language("Definitely", "en", .991f, profile, .003f) == "en",
+                  "Common or confidently English single word skipped");
+            check(translation_language("sheesh", "en", .775f, profile, .087f).isEmpty() &&
+                      translation_language("Kappa", "en", .566f, profile, .152f).isEmpty() &&
+                      translation_language("gg", "en", .545f, profile, .158f).isEmpty() &&
+                      translation_language("right", "", 0.f, profile).isEmpty() &&
+                      translation_language("nice", "", 0.f, profile, 0.f, "en").isEmpty(),
+                  "Slang, emote, ambiguous or same-language single word translated");
             // Scores measured with lid.176.ftz for these messages.
             check(translation_language("On the left side of the road", "en", .590237f, profile,
                                        .135431f) == "en" &&

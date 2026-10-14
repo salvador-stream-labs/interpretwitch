@@ -93,9 +93,21 @@ QString translation_language(const QString &text, const QString &detected, float
     static const QRegularExpression cyrillic("[\\x{0400}-\\x{052F}]");
     if (profile == ModelProfile::Light && cyrillic.match(text).hasMatch())
         return {};
-    static const QSet<QString> greetings{"hello", "hi", "thanks", "thank you",
-                                         "yes",   "no", "bye",    "sorry"};
-    if (greetings.contains(text.toLower().remove(QRegularExpression("[.!?]+$"))))
+    // Common English chat replies the detector scores poorly or not at all on
+    // their own (it has no features for words such as "nice" or "same"). Each
+    // was checked for a sensible Light translation; senses that go wrong in chat
+    // ("right" → direction, "agreed" → approved) are left out.
+    static const QSet<QString> replies{
+        "hello",   "hi",      "hey",       "thanks",     "thank you",       "welcome", "please",
+        "sorry",   "bye",     "yes",       "yeah",       "yep",             "no",      "nope",
+        "ok",      "okay",    "sure",      "maybe",      "this",            "that",    "these",
+        "what",    "why",     "how",       "who",        "when",            "where",   "here",
+        "there",   "now",     "later",     "soon",       "again",           "finally", "wait",
+        "stop",    "really",  "same",      "true",       "exactly",         "nice",    "wow",
+        "cool",    "great",   "awesome",   "amazing",    "perfect",         "good",    "bad",
+        "wrong",   "congrats", "congratulations", "definitely", "absolutely", "seriously"};
+    static const QRegularExpression trailing("[.!?,…]+$");
+    if (replies.contains(text.toLower().remove(trailing)))
         return target == "en" ? QString{} : QString("en");
     // Short chat can score below .60 despite a clear lead. Accept a majority
     // score with a 3x lead, or a lower score with a much stronger 10x lead.
@@ -107,10 +119,13 @@ QString translation_language(const QString &text, const QString &detected, float
         detected == target || !languages().contains(detected) ||
         (profile == ModelProfile::Light && detected != "en"))
         return {};
-    // A single Latin word is often a username, emote or ambiguous abbreviation.
+    // A single Latin word is often a username, emote, slang or an ambiguous
+    // abbreviation (sheesh, Kappa and gg score 55-78% English). Translate one only
+    // when the detector is at least 90% sure it is English, e.g. "Definitely".
     // Do not require spaces in scripts such as Chinese, Japanese or Thai.
     static const QRegularExpression latin("[A-Za-z\\x{00C0}-\\x{024F}]");
-    if (!text.contains(' ') && (profile == ModelProfile::Light || latin.match(text).hasMatch()))
+    if (!text.contains(' ') && (profile == ModelProfile::Light || latin.match(text).hasMatch()) &&
+        !(detected == "en" && confidence >= .90f))
         return {};
     return detected;
 }
