@@ -1,4 +1,4 @@
-# Windows release preparation · Interpretwitch 0.8.2
+# Windows release preparation · Interpretwitch 0.8.3
 
 Status of the Windows x64 build and what remains before it is published. This is
 a review document for maintainers; user-facing setup is in [README.md](README.md)
@@ -160,10 +160,10 @@ Close these before any public Windows download, including a pre-release.
    main compatibility risks are the Qt version OBS ships (the plugin needs Qt
    ≥ 6.11), the browser panel ABI (checked at runtime, `obs_browser_qcef_version() == 3`)
    and the libobs import libraries generated from the installed `obs.dll`.
-3. **CI.** Add a Windows job (for example GitHub Actions `windows-2022`) that
-   installs OBS 32.2.2, runs `build-windows.ps1`, runs the browser adapter test, and
-   publishes the installer with SHA-256 checksums from a tag. Today the build depends
-   on a developer machine's OBS installation for import libraries.
+3. **CI acceptance.** Mac and Windows jobs now fetch pinned OBS 32.2.2, build and
+   test the plugin/browser adapter, and publish installer artifacts with SHA-256
+   and provenance. Inspect the run for the release tag; hosted tests do not replace
+   live NVIDIA and streaming tests.
 4. **Back-up pruning.** Each install moves the previous plugin to
    `%ProgramData%\obs-studio\awl-plugin-backups\chat-<timestamp>` and nothing removes
    them. Keep the last one or two, and mention the folder in the uninstall notes.
@@ -194,11 +194,6 @@ Close these before any public Windows download, including a pre-release.
   Other words/targets still use the model and conservative language detection;
   this is not a general solution to ambiguous one-word messages. The correction
   is newer than the published `v0.8.2-rc.1` assets and still needs a Windows build.
-- **Timing-sensitive isolation check.** The `chat-process-isolation` "stalled model
-  loading" case uses a 150 ms deadline that includes starting the helper process. It
-  failed once while the machine was busy compiling, then passed 6/6 when run alone.
-  Make its deadline start when the helper is running, or relax it, before relying on
-  it in CI.
 - **Catch-up is limited to the latest five messages** when the page or model becomes
   ready (by design, see [INLINE_CHAT.md](INLINE_CHAT.md)). Testers may read this as
   "earlier messages failed to translate".

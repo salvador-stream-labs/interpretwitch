@@ -25,7 +25,7 @@ local successful builds alone are not sufficient.
 
 The supported development recipe targets Apple Silicon, macOS 14+, OBS 32.2.2
 and Qt 6.11.1. It stages a local package and checks it; installation is a separate
-action. No Twitch account or model download is required for the seven unit and
+action. No Twitch account or model download is required for the eight Mac unit and
 integration test suites.
 
 The experimental bridge suite needs permission to listen on localhost. Sandboxes
@@ -89,7 +89,7 @@ No installer signing identity is configured yet; the `.pkg` remains unsigned.
 ## Checks for changes
 
 Run `ctest --test-dir .phase0/chat/build --output-on-failure` after rebuilding.
-The seven suites cover protected text/language routing, settings, localisation,
+The eight Mac suites cover protected text/language routing, short replies, settings, localisation,
 model-file validation, helper faults and the local browser bridge. Loopback tests
 need permission to bind a local port in restricted environments. Diagnostic
 executables and fault fixtures are never installed. `-DBUILD_TESTING=OFF` excludes

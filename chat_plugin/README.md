@@ -1,6 +1,6 @@
 # Interpretwitch
 
-An OBS plugin by **Salvador Stream Labs**, version 0.8.2.
+An OBS plugin by **Salvador Stream Labs**, version 0.8.3.
 
 ## Setup
 

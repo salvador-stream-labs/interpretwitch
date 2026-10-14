@@ -1,6 +1,6 @@
 # Twitch chat adapter
 
-Interpretwitch 0.8.2 uses OBS’s built-in Twitch Chat dock as its only chat source.
+Interpretwitch 0.8.3 uses OBS’s built-in Twitch Chat dock as its only chat source.
 The owner confirmed the preceding bridge in a signed-in Mac OBS session. Twitch
 continues to own original messages, emotes, settings and moderation controls.
 

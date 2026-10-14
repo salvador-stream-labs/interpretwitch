@@ -1,6 +1,6 @@
 # Translation process isolation
 
-Current implementation: 0.8.2
+Current implementation: 0.8.3
 
 The OBS plugin supervises a separate `awl-chat-worker` executable. Model
 verification/downloads, SentencePiece, fastText and CTranslate2 (including CUDA)
