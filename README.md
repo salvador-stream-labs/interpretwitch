@@ -14,8 +14,10 @@ cloud translation, telemetry, audio capture or speech generation.
 ## Status
 
 Version **0.4.0**, a development build for **Apple Silicon, macOS 14+, OBS 32.2.2**.
-Windows and NVIDIA code paths exist but are not yet validated or packaged for
-release. The current Mac bundle is ad-hoc signed, not notarized.
+A Windows x64 build and unsigned installer recipe for OBS 32.2.2 passes the test
+suites and a libobs load check, but has not yet been tested inside a live OBS
+session. NVIDIA code paths are not yet validated. The current Mac bundle is
+ad-hoc signed, not notarized.
 
 Translation runs in a separate process so a model failure can be recovered from
 without restarting the dock. The OBS module still contains native UI and network

@@ -3,7 +3,21 @@
 #include <QApplication>
 #include <QSslSocket>
 #include <iostream>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 int main(int argc, char **argv) {
+#ifdef _WIN32
+    // OBS loads modules with its own directory in the default DLL search path,
+    // which provides obs-frontend-api.dll. Emulate that with the installed OBS.
+    wchar_t obs[MAX_PATH];
+    const DWORD length = GetModuleFileNameW(GetModuleHandleW(L"obs.dll"), obs, MAX_PATH);
+    if (!length || length == MAX_PATH)
+        return 2;
+    *wcsrchr(obs, L'\\') = 0;
+    if (!AddDllDirectory(obs))
+        return 2;
+#endif
     QApplication app(argc, argv);
     if ((argc != 4 && argc != 5) || !obs_startup(argc == 5 ? argv[4] : "en-US", argv[3], nullptr))
         return 2;
@@ -29,14 +43,19 @@ int main(int argc, char **argv) {
                  : QString::fromUtf8("Private Twitch chat translation into Russian"));
     if (!locale)
         std::cerr << "Module did not use the OBS locale.\n";
+#ifdef _WIN32
+    constexpr auto backend = "schannel";
+#else
+    constexpr auto backend = "securetransport";
+#endif
     const bool tls = loaded && QSslSocket::supportsSsl() &&
-                     QSslSocket::availableBackends().contains("securetransport") &&
+                     QSslSocket::availableBackends().contains(backend) &&
                      QSslSocket::isClassImplemented(QSsl::ImplementedClass::Socket) &&
                      QSslSocket::isClassImplemented(QSsl::ImplementedClass::Certificate) &&
                      QSslSocket::isProtocolSupported(QSsl::TlsV1_2);
     // SupportedFeature::CertificateVerification refers to the standalone
     // QSslCertificate::verify API, not certificate checks during a handshake.
-    // SecureTransport uses the system trust evaluation during its handshake.
+    // SecureTransport and Schannel use the system trust evaluation during a handshake.
     QSslSocket socket;
     const bool verify_peer = socket.peerVerifyMode() == QSslSocket::AutoVerifyPeer ||
                              socket.peerVerifyMode() == QSslSocket::VerifyPeer;

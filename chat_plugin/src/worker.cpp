@@ -158,8 +158,13 @@ void Worker::launch() {
             environment.insert(name, inherited.value(name));
 #ifdef Q_OS_WIN
     // The helper uses OBS's matching QtCore DLL without replacing/copying it.
-    environment.insert("PATH", QDir::toNativeSeparators(QCoreApplication::applicationDirPath()) +
-                                   ";" + environment.value("PATH"));
+    QString path = QDir::toNativeSeparators(QCoreApplication::applicationDirPath());
+    // GPU mode loads CUDA 12 cuBLAS on demand. NVIDIA's installer records each
+    // toolkit as CUDA_PATH_V12_<minor>, which is not on PATH for a cuBLAS-only install.
+    for (const auto &name : inherited.keys())
+        if (name.startsWith("CUDA_PATH_V12_", Qt::CaseInsensitive))
+            path += ";" + QDir::toNativeSeparators(QDir(inherited.value(name)).filePath("bin"));
+    environment.insert("PATH", path + ";" + environment.value("PATH"));
 #endif
     process_.setProcessEnvironment(environment);
     process_.setWorkingDirectory(helper.absolutePath());

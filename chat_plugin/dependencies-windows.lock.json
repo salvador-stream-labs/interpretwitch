@@ -1,0 +1,20 @@
+{
+  "qt": {
+    "url": "https://github.com/obsproject/obs-deps/releases/download/2026-08-26/windows-deps-qt6-2026-08-26-x64.zip",
+    "sha256": "7dd60d2883207ecccceb2270538140fccd1b5022e06beedfbc3ba46c7d2e76ae",
+    "size": 260671448
+  },
+  "obs_source": {
+    "url": "https://codeload.github.com/obsproject/obs-studio/tar.gz/refs/tags/32.2.2",
+    "sha256": "35d3cd0979d65664fada7119fdb612eca7c34b61a1623a330caec74bf72626c4",
+    "size": 16184372
+  },
+  "ctranslate2_windows_wheel": {
+    "name": "ctranslate2",
+    "version": "4.8.2",
+    "filename": "ctranslate2-4.8.2-cp312-cp312-win_amd64.whl",
+    "url": "https://files.pythonhosted.org/packages/4e/23/e3b5322ff7368fcbed181ea4c209149416e7940b5b04971d5ee4084afe1a/ctranslate2-4.8.2-cp312-cp312-win_amd64.whl",
+    "sha256": "d94421d565d0de61c032998f737a18942b0f2bef40c0424b1846ec6f67300105",
+    "size": 19222069
+  }
+}

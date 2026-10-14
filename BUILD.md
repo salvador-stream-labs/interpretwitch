@@ -76,11 +76,44 @@ NVIDIA inference succeeds.
 
 ## Windows
 
-The CMake project has Windows targets, Credential Manager/WinHTTP integration and
-helper process limits. A build needs matching OBS/Qt SDKs, CTranslate2 headers,
-DLL/import library, SentencePiece and fastText sources. Point `AWL_DEPS`,
-`AWL_CT2_LIBRARY`, `AWL_CT2_IMPLIB` and `CMAKE_PREFIX_PATH` at those dependencies.
-NVIDIA mode additionally needs compatible CUDA runtime libraries and a driver.
+The Windows recipe targets x64, Windows 10/11, OBS 32.2.2 installed in
+`C:\Program Files\obs-studio` (or set `AWL_OBS_DIR`) and Qt 6.11.1.
 
-The Mac dependency-preparation script does not prepare a Windows SDK. Windows
-compilation, packaging, NVIDIA execution and gameplay testing remain outstanding.
+Prerequisites, all available through `winget`:
+
+```powershell
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+winget install --id Kitware.CMake -e
+winget install --id Ninja-build.Ninja -e
+winget install --id Python.Python.3.12 -e
+winget install --id JRSoftware.InnoSetup -e
+```
+
+Then, from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File chat_plugin\scripts\build-windows.ps1
+```
+
+`prepare-windows.py` downloads the checksum-pinned archives in
+`chat_plugin/dependencies-windows.lock.json` (OBS's Qt 6.11.1 MSVC SDK, the
+OBS 32.2.2 source for headers, and the CTranslate2 4.8.2 Windows wheel) plus the
+shared source archives from `dependencies.lock.json`. It generates import
+libraries for the installed `obs.dll` and `obs-frontend-api.dll` and for the
+wheel's `ctranslate2.dll`, so no OBS source build is needed. Pass
+`-DAWL_OBS_SDK=ON` to CMake to use an OBS SDK CMake package instead.
+
+The recipe runs CTest, stages `.phase0/packages/obs-chat-win/awl-chat`, checks
+the module and helper imports, loads the staged module and its Schannel TLS
+backend in the installed libobs using only OBS's own Qt DLLs, then builds
+`.phase0/packages/obs-chat-win/AwlInterpretwitch-<version>-windows-x64-setup.exe`
+with Inno Setup. Quit OBS and run that installer. It installs into
+`%ProgramData%\obs-studio\plugins\awl-chat` (administrator rights required),
+backs up an existing copy to `%ProgramData%\obs-studio\awl-plugin-backups`, and
+leaves cached models and settings in `%APPDATA%\obs-studio\plugin_config\awl-chat`.
+
+The package ships `Qt6WebSockets.dll` and the Schannel TLS backend beside the
+plugin; base Qt DLLs are OBS's own. The installer is unsigned. NVIDIA mode
+additionally needs CUDA 12 runtime libraries (cuBLAS) on `PATH` and a driver;
+without them the helper falls back to CPU. NVIDIA execution and gameplay testing
+remain outstanding.

@@ -44,13 +44,18 @@ MODULE_EXPORT void obs_module_set_locale(const char *locale) {
 }
 MODULE_EXPORT bool obs_module_load() {
     obs_module_set_locale(obs_get_locale());
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
     // OBS ships QtNetwork but not its TLS plugins. Register our matching,
     // bundled backend before constructing any network clients in post_load.
     const char *binary = obs_get_module_binary_path(obs_current_module());
     if (binary) {
-        const auto plugins =
-            QFileInfo(QString::fromUtf8(binary)).dir().absoluteFilePath("../PlugIns");
+        const auto plugins = QFileInfo(QString::fromUtf8(binary))
+                                 .dir()
+#ifdef __APPLE__
+                                 .absoluteFilePath("../PlugIns");
+#else
+                                 .absoluteFilePath("qt-plugins");
+#endif
         if (QDir(plugins).exists())
             QCoreApplication::addLibraryPath(plugins);
     }
