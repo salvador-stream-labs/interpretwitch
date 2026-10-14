@@ -1,0 +1,12 @@
+Interpretwitch is installed.
+
+Open OBS and connect Twitch in Settings → Stream.
+Open Docks → Chat, then Tools → Interpretwitch to choose a language and download a model.
+
+Translations appear privately in your Twitch Chat dock.
+
+To remove the plugin, quit OBS and remove awl-chat.plugin from:
+~/Library/Application Support/obs-studio/plugins
+
+Previous installations are kept in:
+~/Library/Application Support/obs-studio/awl-plugin-backups

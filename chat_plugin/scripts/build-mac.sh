@@ -29,4 +29,6 @@ QT_QPA_PLATFORM=offscreen .phase0/chat/build/awl-chat-load-test \
   .phase0/packages/obs-chat-mac/awl-chat.plugin/Contents/Resources \
   .phase0/chat/module-test-config
 "$awl_chat_root/Install Interpretwitch.command" --check
-print 'Quit OBS, then run Install Interpretwitch.command.'
+python3 chat_plugin/scripts/installer-mac.py
+python3 chat_plugin/tests/installer_mac.py
+print 'Quit OBS, then open the .pkg in .phase0/packages/obs-chat-mac.'

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Fetch pinned developer dependencies. No models or account credentials."""
-import hashlib
 import json
 from pathlib import Path
 import subprocess
 import tarfile
 import zipfile
+from package_source import sha256
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / 'chat_plugin'
@@ -19,11 +19,11 @@ def main():
     DEPS.mkdir(parents=True, exist_ok=True)
     for name, asset in lock.items():
         archive = ARCHIVES / name
-        if not archive.exists() or hashlib.sha256(archive.read_bytes()).hexdigest() != asset['sha256']:
+        if not archive.exists() or sha256(archive) != asset['sha256']:
             temporary = archive.with_suffix('.partial')
             subprocess.run(['curl', '-sS', '--fail', '--location', '--proto', '=https', '--proto-redir', '=https',
                             asset['url'], '-o', str(temporary)], check=True)
-            if temporary.stat().st_size != asset['size'] or hashlib.sha256(temporary.read_bytes()).hexdigest() != asset['sha256']:
+            if temporary.stat().st_size != asset['size'] or sha256(temporary) != asset['sha256']:
                 raise RuntimeError(f'Dependency hash mismatch: {name}')
             temporary.replace(archive)
         if name == 'ctranslate2_macos_wheel':

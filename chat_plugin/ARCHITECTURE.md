@@ -1,6 +1,6 @@
 # Reviewing Interpretwitch
 
-Version 0.8.2, by Salvador Stream Labs. This source map describes executable
+Version 0.8.3, by Salvador Stream Labs. This source map describes executable
 behaviour; it is not an audit certificate or a guarantee against native failures.
 
 ## Follow one message
@@ -32,8 +32,10 @@ There is no Interpretwitch OAuth, EventSub connection or duplicate chat renderer
 | `src/worker.*`, `src/ipc.hpp` | Separate-process supervisor, bounded pipes, generation checks, timeouts and restart policy. |
 | `src/helper.cpp`, `src/model.*` | Local fastText detection and CTranslate2 translation. Source-language metadata travels with each result and cached result. |
 | `src/model_profile.*` | Light/Heavy and target identity, language eligibility and stable cache paths. |
+| `src/short_replies.*` | Small, whole-reply English corrections for five targets; helper-only, no word substitution within sentences. |
 | `data/languages.json` | Reviewed target allowlist, English/Russian names, compact Russian pill labels and available Light pack sizes. Model codes match the pinned Heavy vocabulary. |
 | `src/model_files.*`, `src/model_download.*` | Pinned file verification, explicit HTTPS downloads and atomic cache promotion; helper-only. |
+| `src/gpu_runtime.*` | Windows-only driver/runtime checks and optional verified NVIDIA pack installation in a private temporary directory; helper-only. |
 | `src/ui_text.*`, `data/locale/ru-RU.json` | OBS-selected English/Russian strings, also passed to the helper and browser adapter. |
 | `third_party/obs-browser/` | Unmodified, pinned upstream interface header and provenance. No second browser runtime. |
 
@@ -44,7 +46,7 @@ uses loopback, OBS manages Twitch TLS, and the helper uses system HTTPS librarie
 
 ## Review checks
 
-Seven CTest suites cover text/language routing, UI preferences, localisation,
+Eight Mac CTest suites (ten on Windows) cover text/language routing, short replies, UI preferences, localisation,
 file verification, helper failures and the bridge. The separate offline Chromium
 fixture checks presentation, live-chat scrolling, reading history, input focus,
 selection, deletions, hidden/recycled rows, five-message history catch-up,
@@ -54,6 +56,30 @@ path and source-language metadata. See [BUILD.md](../BUILD.md).
 A future shared helper can reuse the model/IPC boundaries, but is not implemented.
 The chat helper receives text parts, never audio or browser/account credentials.
 Stable model IDs and cache roots remain independent of presentation and branding.
+
+## 0.8.3 review
+
+The first-party runtime, browser adapter, build/installer scripts and test coverage
+were reviewed again. The concrete component boundaries remain useful; no generic
+service framework or additional runtime dependency was introduced.
+
+- Browser teardown now restores original chat even if scroll measurement throws.
+  Translation CSS is removed independently of the passive failure indicator.
+- GPU downloads use a unique Qt-owned temporary directory per attempt instead of
+  fixed filenames and a custom cleanup guard. ZIP bounds avoid signed addition
+  overflow. An unused GPU-code decoder and readiness field were removed.
+- Incoming fragment flags are validated and message size is checked while
+  assembling input. Cancellation also takes precedence over cached translations.
+- Build scripts reuse the existing streaming SHA-256 function instead of loading
+  entire archives into memory to hash them.
+- Mac ZIP/PKG installers share preflight checks. The PKG has a fixed per-user
+  payload, disables bundle relocation, backs up the previous plugin and uses
+  Installer's whole-bundle replacement rather than merging old files.
+
+These changes are covered by native, browser, model and installer fixtures.
+Third-party libraries were checked at their version/licence/linkage boundaries,
+not independently audited line by line. Platform and signing limitations remain
+documented in the release notes.
 
 ## 0.8.0 review
 

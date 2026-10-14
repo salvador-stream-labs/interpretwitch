@@ -62,22 +62,29 @@ build compiles Qt WebSockets, SentencePiece, fastText, the dock, helper and test
 The pinned SIMDe headers provide the SIMD compatibility required by OBS on Mac.
 
 The recipe runs CTest, stages `.phase0/packages/obs-chat-mac/awl-chat.plugin`,
-checks the module against installed libobs, then runs the
-installer in `--check` mode. It does not install into OBS or touch Twitch settings.
+checks the module against installed libobs, builds a graphical `.pkg`, and verifies
+its extracted payload, signatures, install domain and English/Russian resources.
+It also runs the ZIP installer in `--check` mode. It does not install into OBS or
+touch Twitch settings. CI additionally exercises fresh install, upgrade, backup
+and removal with `python chat_plugin/tests/installer_mac.py --install` on a
+disposable Mac runner.
 
 The staged bundle includes plugin source, dependency source archives and licence
 notices. `.phase0/packages/obs-chat-mac/package.json` records binary/source hashes
 and package size. Ad-hoc signatures verify bundle integrity, not publisher identity.
 This recipe is not yet a reproducible-build or independently audited release.
 
-After a successful build, quit OBS and run:
+After a successful build, quit OBS and open:
 
 ```sh
-zsh 'Install Interpretwitch.command'
+open .phase0/packages/obs-chat-mac/Interpretwitch-0.8.3-macos-arm64.pkg
 ```
 
 The installer backs up an existing plugin before replacement. Cached models and
-settings remain in OBS's configuration directory.
+settings remain in OBS's configuration directory. `installer-mac.py` builds the
+current-user-only package; `scripts/macos/` holds its visible instructions and
+preinstall script. Both Mac installers share `mac-install-common.sh` checks.
+No installer signing identity is configured yet; the `.pkg` remains unsigned.
 
 ## Checks for changes
 

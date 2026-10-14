@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Stage a model-free, self-contained native Mac plugin and source archive."""
-import hashlib
 import json
 import os
 import plistlib
@@ -8,7 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-from package_source import write_source
+from package_source import sha256, write_source
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / 'chat_plugin'
@@ -59,9 +58,9 @@ def main():
         raise RuntimeError('Helper still depends on developer runtime paths')
     version = plistlib.loads((STAGE / 'Contents/Info.plist').read_bytes())['CFBundleShortVersionString']
     evidence = {'product': 'Interpretwitch', 'publisher': 'Salvador Stream Labs', 'version': version, 'bytes': sum(p.stat().st_size for p in files),
-                'module_sha256': hashlib.sha256((STAGE / 'Contents/MacOS/awl-chat').read_bytes()).hexdigest(),
-                'helper_sha256': hashlib.sha256(helper.read_bytes()).hexdigest(),
-                'source_sha256': hashlib.sha256((resources / 'source.zip').read_bytes()).hexdigest(),
+                'module_sha256': sha256(STAGE / 'Contents/MacOS/awl-chat'),
+                'helper_sha256': sha256(helper),
+                'source_sha256': sha256(resources / 'source.zip'),
                 'inference_process': 'awl-chat-worker',
                 'models_bundled': False, 'signature': 'local ad-hoc, not notarized', 'source': source}
     (stage_parent / 'package.json').write_text(json.dumps(evidence, indent=2) + '\n')

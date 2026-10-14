@@ -5,9 +5,10 @@ These builds target **OBS 32.2.2** and its built-in Twitch Chat dock.
 
 | Computer | Download |
 | --- | --- |
-| Apple Silicon Mac, macOS 14 or later | `Interpretwitch-0.8.2-macos-arm64.zip` |
-| Windows 10/11 x64 | `Interpretwitch-0.8.2-windows-x64-setup.exe` |
-| Windows x64, manual installation | `Interpretwitch-0.8.2-windows-x64.zip` |
+| Apple Silicon Mac, macOS 14 or later | `Interpretwitch-0.8.3-macos-arm64.pkg` |
+| Apple Silicon Mac, optional ZIP installation | `Interpretwitch-0.8.3-macos-arm64.zip` |
+| Windows 10/11 x64 | `Interpretwitch-0.8.3-windows-x64-setup.exe` |
+| Windows x64, manual installation | `Interpretwitch-0.8.3-windows-x64.zip` |
 
 Intel Macs, Windows on Arm, other OBS versions and other chat services are not
 supported by these packages. Models and optional NVIDIA libraries are downloaded
@@ -16,16 +17,16 @@ separately from settings. CPU is the default.
 ## Verify your download
 
 The release includes `SHA256SUMS.txt` and a build JSON file for each platform.
-On Mac, put the ZIP and checksums in the same folder and run:
+On Mac, put the installer and checksums in the same folder and run:
 
 ```sh
-shasum -a 256 Interpretwitch-0.8.2-macos-arm64.zip
+shasum -a 256 Interpretwitch-0.8.3-macos-arm64.pkg
 ```
 
 On Windows, use PowerShell:
 
 ```powershell
-Get-FileHash .\Interpretwitch-0.8.2-windows-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Interpretwitch-0.8.3-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 Compare the full result with that file's entry in `SHA256SUMS.txt`. If they differ,
@@ -47,10 +48,19 @@ yet guaranteed; runner tools and signatures can affect the output.
 
 Quit OBS completely first.
 
-**Mac:** extract the ZIP and run `Install Interpretwitch.command`. It installs
+**Mac installer:** open the `.pkg` and follow the graphical installer. It installs
 only into your account's `Library/Application Support/obs-studio/plugins` folder
-and backs up an existing copy. No administrator password is required. The current
-bundle has an ad-hoc integrity signature, not Apple Developer ID notarization.
+and backs up an existing copy. No administrator password is required. Installer
+uses your Mac's language, with English and Russian instructions. OBS must be
+closed; the installer does not close it for you. Models and settings are retained.
+
+**Mac ZIP:** extract all files together and run `Install Interpretwitch.command`.
+Keep `mac-install-common.sh` beside it. Alternatively, copy the whole
+`awl-chat.plugin` bundle into the plugin folder above, moving any previous copy
+elsewhere first. Do not merge files from different versions.
+
+The current `.pkg` is unsigned. Its plugin bundle has an ad-hoc integrity signature,
+not Apple Developer ID notarization. Changing the packaging does not change trust.
 macOS can block a downloaded preview; signing and a downloaded-file Gatekeeper
 acceptance test remain required before recommending it as a stable release.
 

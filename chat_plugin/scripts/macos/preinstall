@@ -1,0 +1,16 @@
+#!/bin/zsh
+set -euo pipefail
+source "${0:A:h}/mac-install-common.sh"
+# Distribution enables only CurrentUserHomeDirectory. Never run this as root
+# or guess the console user's home when invoked through sudo or another domain.
+(( EUID != 0 )) || { print -u2 'Install for your current user, without sudo.'; exit 1; }
+mac_check_host
+mac_check_obs_closed
+mac_install_paths "$HOME" || { print -u2 'The OBS plugin location is not a regular folder.'; exit 1; }
+if [[ -d "$awl_chat_target" ]]; then
+  # Installer atomically replaces the bundle. Keep the original in place until
+  # that happens; a failed backup aborts before Installer writes the payload.
+  /bin/mkdir -p "$awl_chat_backups"
+  awl_chat_backup=$(/usr/bin/mktemp -d "$awl_chat_backups/chat.XXXXXX")
+  /usr/bin/ditto "$awl_chat_target" "$awl_chat_backup/awl-chat.plugin"
+fi

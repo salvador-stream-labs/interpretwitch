@@ -50,6 +50,7 @@ jobs:
         run: |
           zsh chat_plugin/scripts/build-mac.sh
           PLAYWRIGHT_MODULE="$PWD/chat_plugin/tests/browser/node_modules/playwright" node chat_plugin/tests/inline_chat_browser.cjs .phase0/chat/build/awl-chat-inline-tests
+          python chat_plugin/tests/installer_mac.py --install
       - name: Build and test Windows package
         if: runner.os == 'Windows'
         shell: pwsh

@@ -21,6 +21,8 @@ function attachInterpretwitch(config) {
     let healthText = config.health.waiting, healthDetail = '', lastReply = '';
     const health = document.createElement('span');
     health.dataset.awlHealth = '';
+    // Keep the failure indicator readable after removing all translation CSS.
+    health.style.cssText = 'display:block;font:normal 11px/1.4 sans-serif;opacity:.65;white-space:normal';
     const style = document.createElement('style');
     style.dataset.awlStyle = '';
     style.textContent = `
@@ -36,7 +38,6 @@ function attachInterpretwitch(config) {
             background:color-mix(in srgb,currentColor 5%,transparent); }
         [data-awl-language][hidden] { display:none; }
         [data-awl-translation] > [data-awl-language]:last-child { font-size:.66em; margin-inline-start:.6em; margin-inline-end:0; }
-        [data-awl-health] { display:block; font:normal 11px/1.4 sans-serif; opacity:.65; white-space:normal; }
     `;
     document.head.appendChild(style);
     let targetLanguage = 'ru', languageLabels = {}, languageNames;
@@ -266,9 +267,12 @@ function attachInterpretwitch(config) {
                 } catch {}
             }
             socket.close();
-            const restore = scrollAdjustment();
-            clear();
-            restore();
+            // Teardown must still restore originals when layout measurement is
+            // what failed. Removing the sheet also revokes every hiding rule.
+            let restore;
+            try { restore = scrollAdjustment(); } catch {}
+            try { clear(); } finally { style.remove(); }
+            try { restore?.(); } catch {}
         }
         if (failed) {
             showHealth(true);

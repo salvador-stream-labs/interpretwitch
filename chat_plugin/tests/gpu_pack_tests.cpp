@@ -109,11 +109,14 @@ int main(int argc, char **argv) {
         const auto failure = [&](const QString &path, const char *expected, int fetched) {
             QTemporaryDir fresh;
             const int before = fetches;
-            const auto message =
-                error_of([&] { install_gpu_pack(path, fresh.path(), running, status, local); });
+            const auto message = error_of([&] {
+                install_gpu_pack(path, fresh.path(), running, status, local);
+            });
             check(message == expected, expected);
             check(fetches - before == fetched, "Unexpected download for an invalid catalogue");
-            check(QDir(fresh.path()).entryList(QDir::NoDotAndDotDot | QDir::AllEntries).isEmpty(),
+            check(QDir(fresh.path())
+                      .entryList(QDir::NoDotAndDotDot | QDir::AllEntries | QDir::Hidden)
+                      .isEmpty(),
                   "Failed install left files behind");
         };
         const char *verification = "GPU support download failed verification. Try again.";
@@ -158,22 +161,41 @@ int main(int argc, char **argv) {
             std::atomic<bool> cancel{false};
             const Fetch cancelling = [&](const std::string &url, const awl::DownloadSink &sink,
                                          const std::atomic<bool> &flag) {
-                local(url,
-                      [&](const char *data, size_t length) {
-                          cancel = true;
-                          sink(data, length);
-                      },
-                      flag);
+                local(
+                    url,
+                    [&](const char *data, size_t length) {
+                        cancel = true;
+                        sink(data, length);
+                    },
+                    flag);
             };
             const auto message = error_of([&] {
-                check(install_gpu_pack(manifest, fresh.path(), cancel, status, cancelling)
-                          .isEmpty(),
-                      "Cancelled install published a pack");
+                check(
+                    install_gpu_pack(manifest, fresh.path(), cancel, status, cancelling).isEmpty(),
+                    "Cancelled install published a pack");
             });
             check((message.isEmpty() || message == "Download cancelled.") &&
                       installed_gpu_pack(manifest, fresh.path()).isEmpty() &&
-                      QDir(fresh.path()).entryList(QDir::NoDotAndDotDot | QDir::AllEntries).isEmpty(),
+                      QDir(fresh.path())
+                          .entryList(QDir::NoDotAndDotDot | QDir::AllEntries | QDir::Hidden)
+                          .isEmpty(),
                   "Cancelled install left a pack or partial files");
+        }
+
+        {
+            QTemporaryDir fresh;
+            const auto legacy = QDir(fresh.path()).filePath("cublas-test-1.download");
+            QFile sentinel(legacy);
+            check(sentinel.open(QIODevice::WriteOnly), "Cannot create concurrent-download fixture");
+            sentinel.write("another attempt");
+            sentinel.close();
+            install_gpu_pack(manifest, fresh.path(), running, status, local);
+            check(sentinel.open(QIODevice::ReadOnly) && sentinel.readAll() == "another attempt",
+                  "Install overwrote another attempt's temporary file");
+            check(QDir(fresh.path())
+                      .entryList({".gpu-install-*"}, QDir::Dirs | QDir::Hidden)
+                      .isEmpty(),
+                  "Successful install left temporary files");
         }
 
         check(classify_gpu_error("CUDA failed with error out of memory") == GpuIssue::Memory &&
@@ -187,15 +209,12 @@ int main(int argc, char **argv) {
                   classify_gpu_error("something new") == GpuIssue::Unknown,
               "GPU error classification");
         for (int i = 0; i <= int(GpuIssue::Unknown); ++i) {
-            bool valid = false;
             const auto issue = GpuIssue(i);
-            check(gpu_issue_from_code(gpu_issue_code(issue), &valid) == issue && valid &&
+            check(gpu_issue_code(issue).isEmpty() == (issue == GpuIssue::None) &&
                       gpu_issue_text(issue).isEmpty() == (issue == GpuIssue::None),
                   "GPU issue codes/text");
         }
-        bool valid = true;
-        gpu_issue_from_code("bogus", &valid);
-        check(!valid && gpu_issue_text(GpuIssue::OldDriver, 11060).contains("11.6"),
+        check(gpu_issue_text(GpuIssue::OldDriver, 11060).contains("11.6"),
               "GPU issue validation/driver version");
         std::cout << "GPU pack: verified download, approved-only extraction (incl. ZIP64), "
                      "reuse, damage, tampered/hostile catalogues, cancellation and error "

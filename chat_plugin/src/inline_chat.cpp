@@ -54,10 +54,10 @@ bool InlineChat::start() {
     QFile file(":/awl-chat/inline_chat.js");
     if (!execute_ || !file.open(QIODevice::ReadOnly) ||
         !server_.listen(QHostAddress::LocalHost, 0)) {
-        log_event(LogLevel::Error, "Bridge could not start: " +
-                                       (!execute_         ? QString("no browser interface")
-                                        : !file.isOpen() ? QString("adapter script missing")
-                                                         : server_.errorString()));
+        log_event(LogLevel::Error,
+                  "Bridge could not start: " + (!execute_        ? QString("no browser interface")
+                                                : !file.isOpen() ? QString("adapter script missing")
+                                                                 : server_.errorString()));
         if (status)
             status(ui_text("Could not start translation in the Twitch dock."));
         return false;
@@ -131,9 +131,10 @@ void InlineChat::attach() {
     }
     const bool found = execute(script_);
     if (attempts_ == 1 || found != dock_found_)
-        log_event(LogLevel::Info, QString(found ? "Adapter sent to the Twitch Chat dock (attempt %1)"
-                                                : "Twitch Chat dock not available (attempt %1)")
-                                      .arg(attempts_));
+        log_event(LogLevel::Info,
+                  QString(found ? "Adapter sent to the Twitch Chat dock (attempt %1)"
+                                : "Twitch Chat dock not available (attempt %1)")
+                      .arg(attempts_));
     dock_found_ = found;
     if (status)
         status(found ? ui_text("Waiting for Twitch's chat page…")
@@ -146,14 +147,13 @@ void InlineChat::accept() {
         if (socket_ || socket->origin() != "https://www.twitch.tv" ||
             socket->requestUrl().path() != "/" + token_ || !socket->peerAddress().isLoopback()) {
             // Never log the requested path: it would reveal the capability token.
-            log_event(LogLevel::Warning,
-                      "Rejected a bridge connection: " +
-                          (socket_ ? QString("a page is already connected")
-                           : socket->origin() != "https://www.twitch.tv"
-                               ? "origin " + socket->origin().left(100)
-                           : socket->requestUrl().path() != "/" + token_
-                               ? QString("wrong capability")
-                               : QString("not a loopback address")));
+            log_event(LogLevel::Warning, "Rejected a bridge connection: " +
+                                             (socket_ ? QString("a page is already connected")
+                                              : socket->origin() != "https://www.twitch.tv"
+                                                  ? "origin " + socket->origin().left(100)
+                                              : socket->requestUrl().path() != "/" + token_
+                                                  ? QString("wrong capability")
+                                                  : QString("not a loopback address")));
             socket->abort();
             socket->deleteLater();
             continue;
@@ -289,10 +289,9 @@ void InlineChat::receive(const QString &text) {
             // Once per bridge state: busy chat can repeat this for every message.
             log_event(LogLevel::Info,
                       QString("Answering requests untranslated: %1")
-                          .arg(!ready_ ? "model not ready"
-                               : pending_.values().contains(id)
-                                   ? "duplicate request"
-                                   : "24 requests already waiting"));
+                          .arg(!ready_                          ? "model not ready"
+                               : pending_.values().contains(id) ? "duplicate request"
+                                                                : "24 requests already waiting"));
             unserved_logged_ = true;
         }
         send({{"type", "result"}, {"id", id}, {"text", ""}});
@@ -305,17 +304,19 @@ void InlineChat::receive(const QString &text) {
         return reject(QString("request with %1 fragments").arg(parts.size()));
     for (const auto &value : parts) {
         const auto part = value.toObject();
+        if (!part["text"].isString() || !part["protected"].isBool())
+            return reject("invalid fragment fields");
         const auto fragment = part["text"].toString();
         if (fragment.isEmpty() || fragment.size() > limits::message_characters)
             return reject(QString("request fragment of %1 characters").arg(fragment.size()));
         m.original += fragment;
+        if (m.original.size() > limits::message_characters)
+            return reject(QString("request of %1 characters").arg(m.original.size()));
         if (part["protected"].toBool())
             m.parts.push_back({fragment, true});
         else
             m.parts += protect_text(fragment);
     }
-    if (m.original.size() > limits::message_characters)
-        return reject(QString("request of %1 characters").arg(m.original.size()));
     pending_.insert(m.id, id);
     if (message)
         message(std::move(m));

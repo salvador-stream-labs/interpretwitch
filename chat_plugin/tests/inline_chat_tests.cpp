@@ -297,6 +297,21 @@ int main(int argc, char **argv) {
         spin();
         check(offered == 26, "Paused bridge submitted inference");
         bridge.set_ready(true);
+        client.sendTextMessage(
+            QJsonDocument(
+                QJsonObject{{"type", "translate"},
+                            {"id", QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                            {"parts", QJsonArray{QJsonObject{{"text", "Invalid protection flag"},
+                                                             {"protected", "false"}}}}})
+                .toJson(QJsonDocument::Compact));
+        wait_for([&] {
+            return client.state() == QAbstractSocket::UnconnectedState;
+        });
+        check(offered == 26, "Malformed fragment reached inference");
+        open(client, url);
+        wait_for([&] {
+            return client.state() == QAbstractSocket::ConnectedState;
+        });
         client.sendTextMessage("{bad json");
         wait_for([&] {
             return client.state() == QAbstractSocket::UnconnectedState;
@@ -385,8 +400,8 @@ int main(int argc, char **argv) {
                 QSettings saved(cache.filePath("settings.ini"), QSettings::IniFormat);
                 saved.setValue("run_on", "gpu");
             }
-            Panel gpu("gpu-libraries", cache.path(), cache.filePath("settings.ini"), nullptr,
-                      false, QString::fromLocal8Bit(argv[1]), [&](const QString &value) {
+            Panel gpu("gpu-libraries", cache.path(), cache.filePath("settings.ini"), nullptr, false,
+                      QString::fromLocal8Bit(argv[1]), [&](const QString &value) {
                           script = value;
                           return true;
                       });

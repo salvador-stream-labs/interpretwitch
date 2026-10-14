@@ -20,7 +20,7 @@ separate Twitch login, Client ID setup, audio capture or speech generation.
 See [downloads and verification](DOWNLOADS.md) for preview packages and supported
 platforms. GitHub builds prepare release drafts; a draft is not a public download.
 
-1. Install the plugin with OBS closed. On Mac, run `Install Interpretwitch.command`.
+1. Install the plugin with OBS closed. On Mac, open the `.pkg` installer.
 2. Connect Twitch in **OBS Settings → Stream**, then open **Docks → Chat**.
 3. Open **Tools → Interpretwitch** to choose/download a model and adjust appearance.
 
@@ -36,7 +36,7 @@ failure restores original messages and stops waiting indicators.
 
 ## Status
 
-Version **0.8.2**, development build for **Apple Silicon, macOS 14+, OBS 32.2.2**.
+Version **0.8.3**, development build for **Apple Silicon, macOS 14+, OBS 32.2.2**.
 The preceding browser bridge worked in the owner’s signed-in Mac OBS session.
 This revision’s layout, defaults and settings are checked by automated tests;
 Windows execution and NVIDIA hardware still need validation for this revision; see

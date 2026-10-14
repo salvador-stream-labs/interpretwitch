@@ -4,7 +4,6 @@
 Run inside a Visual Studio x64 developer environment: import libraries for the
 installed OBS and for the prebuilt CTranslate2 DLL are generated with dumpbin/lib.
 """
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,6 +11,7 @@ import re
 import subprocess
 import tarfile
 import zipfile
+from package_source import sha256
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / 'chat_plugin'
@@ -25,11 +25,11 @@ CT2_RUNTIME = ['ctranslate2.dll', 'libiomp5md.dll']
 
 def fetch(name, asset):
     archive = ARCHIVES / name
-    if not archive.exists() or hashlib.sha256(archive.read_bytes()).hexdigest() != asset['sha256']:
+    if not archive.exists() or sha256(archive) != asset['sha256']:
         temporary = archive.with_suffix('.partial')
         subprocess.run(['curl.exe', '-sS', '--fail', '--location', '--proto', '=https', '--proto-redir', '=https',
                         asset['url'], '-o', str(temporary)], check=True)
-        if temporary.stat().st_size != asset['size'] or hashlib.sha256(temporary.read_bytes()).hexdigest() != asset['sha256']:
+        if temporary.stat().st_size != asset['size'] or sha256(temporary) != asset['sha256']:
             raise RuntimeError(f'Dependency hash mismatch: {name}')
         temporary.replace(archive)
     return archive

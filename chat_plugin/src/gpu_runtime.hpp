@@ -11,7 +11,6 @@ namespace awl::chat {
 // folder; only files listed in the catalogue are written.
 enum class GpuIssue { None, NoDriver, NoDevice, OldDriver, Libraries, Memory, Unknown };
 QString gpu_issue_code(GpuIssue issue);
-GpuIssue gpu_issue_from_code(const QString &code, bool *valid = nullptr);
 // Classify a CTranslate2/CUDA exception message. Unrecognised errors stay Unknown.
 GpuIssue classify_gpu_error(const std::string &message);
 // Localised explanation for the settings window. driver_cuda is e.g. 11060.

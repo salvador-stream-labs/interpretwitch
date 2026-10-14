@@ -80,7 +80,6 @@ void read_commands(Input &input) {
 #ifdef _WIN32
 struct GpuReadiness {
     GpuIssue issue = GpuIssue::None;
-    int driver_cuda = 0;
     QString text;
 };
 // Use (or, on request, install) the NVIDIA cuBLAS pack, then check the driver,
@@ -95,12 +94,11 @@ GpuReadiness prepare_gpu(const QJsonObject &command, const std::atomic<bool> &ca
             // Download only when cuBLAS is the one thing missing.
             const auto before = probe_gpu();
             if (before.issue != GpuIssue::Libraries)
-                return {before.issue, before.driver_cuda,
-                        gpu_issue_text(before.issue, before.driver_cuda)};
+                return {before.issue, gpu_issue_text(before.issue, before.driver_cuda)};
             try {
                 pack = install_gpu_pack(manifest, root, cancel, say);
             } catch (const std::exception &error) {
-                return {GpuIssue::Libraries, before.driver_cuda,
+                return {GpuIssue::Libraries,
                         ui_error(error.what(), "GPU support could not be installed. Try again.") +
                             " " + ui_text("Translation uses CPU.")};
             }
@@ -109,7 +107,7 @@ GpuReadiness prepare_gpu(const QJsonObject &command, const std::atomic<bool> &ca
             use_gpu_pack(pack);
     }
     const auto probe = probe_gpu();
-    return {probe.issue, probe.driver_cuda, gpu_issue_text(probe.issue, probe.driver_cuda)};
+    return {probe.issue, gpu_issue_text(probe.issue, probe.driver_cuda)};
 }
 #endif
 bool constrain_process() {

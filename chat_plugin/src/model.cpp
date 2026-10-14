@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "model.hpp"
 #include "limits.hpp"
+#include "short_replies.hpp"
 #include <QDir>
 #include <QHash>
-#include <QRegularExpression>
 #include <ctranslate2/translator.h>
 #include <sentencepiece_processor.h>
 #include <fasttext.h>
@@ -79,6 +79,8 @@ void Translator::clear_cache() {
     impl_->order.clear();
 }
 Translation Translator::translate(const Message &message, const std::function<bool()> &cancel) {
+    if (cancel())
+        return {message.original};
     QString key;
     for (const auto &part : message.parts)
         key +=
@@ -86,9 +88,13 @@ Translation Translator::translate(const Message &message, const std::function<bo
     if (impl_->cache.contains(key))
         return impl_->cache.value(key);
     QString detection;
+    size_t text_parts = 0;
     for (const auto &part : message.parts)
-        if (!part.protected_text)
+        if (!part.protected_text) {
             detection += part.text + ' ';
+            if (!part.text.trimmed().isEmpty())
+                ++text_parts;
+        }
     detection = detection.simplified();
     Translation result{message.original};
     if (detection.isEmpty())
@@ -116,6 +122,15 @@ Translation Translator::translate(const Message &message, const std::function<bo
         }
         if (++pieces > limits::translated_portions)
             return {message.original, false};
+        // Apply fixed replies only to the entire text, never to isolated pieces
+        // of a sentence split by a mention, link or emote. Keep protected parts.
+        if (source_language == "en" && text_parts == 1) {
+            const auto reply = short_reply(part.text, impl_->target_language);
+            if (!reply.isEmpty()) {
+                translated += reply;
+                continue;
+            }
+        }
         std::vector<std::string> tokens;
         impl_->source.Encode(part.text.trimmed().toStdString(), &tokens);
         if (tokens.size() > limits::input_tokens)

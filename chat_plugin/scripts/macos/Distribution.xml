@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<installer-gui-script minSpecVersion="2">
+  <title>Interpretwitch</title>
+  <options customize="never" hostArchitectures="arm64" require-scripts="true" allow-external-scripts="false"/>
+  <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="false"/>
+  <volume-check><allowed-os-versions><os-version min="14.0"/></allowed-os-versions></volume-check>
+  <installation-check script="checkOBS()"/>
+  <script><![CDATA[
+    function checkOBS() {
+      var info = system.files.plistAtPath('/Applications/OBS.app/Contents/Info.plist');
+      if (info && info.CFBundleShortVersionString === '32.2.2') return true;
+      my.result.type = 'Fatal';
+      my.result.title = 'Interpretwitch';
+      my.result.message = system.localizedString('OBSRequired');
+      return false;
+    }
+  ]]></script>
+  <welcome file="welcome.txt" mime-type="text/plain"/>
+  <conclusion file="conclusion.txt" mime-type="text/plain"/>
+  <choices-outline><line choice="interpretwitch"/></choices-outline>
+  <choice id="interpretwitch" title="Interpretwitch" visible="false">
+    <pkg-ref id="org.salvadorstreamlabs.interpretwitch"/>
+  </choice>
+  <pkg-ref id="org.salvadorstreamlabs.interpretwitch">#Interpretwitch-component.pkg</pkg-ref>
+</installer-gui-script>

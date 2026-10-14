@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(awl-chat VERSION 0.8.2 LANGUAGES C CXX)
+project(awl-chat VERSION 0.8.3 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -46,7 +46,7 @@ add_library(awl-chat-core STATIC src/chat_core.cpp src/model_profile.cpp src/dia
 target_include_directories(awl-chat-core PUBLIC src)
 target_link_libraries(awl-chat-core PUBLIC awl-chat-text)
 # Inference and file access are helper-only targets. Neither is linked into OBS.
-add_library(awl-chat-model STATIC src/model.cpp)
+add_library(awl-chat-model STATIC src/model.cpp src/short_replies.cpp)
 target_include_directories(awl-chat-model PRIVATE "${AWL_DEPS}/sentencepiece/src")
 target_link_libraries(awl-chat-model PUBLIC awl-chat-core PRIVATE awl-ct2 sentencepiece-static awl-language Threads::Threads)
 add_library(awl-chat-model-files STATIC src/model_files.cpp src/model_download.cpp)

@@ -36,9 +36,9 @@ def main():
         archive.write(package / 'package.json', 'package.json')
         if platform == 'macos-arm64':
             archive.write(ROOT / 'chat_plugin/scripts/install-mac.sh', 'Install Interpretwitch.command')
-    if platform == 'windows-x64':
-        installer = package / f'Interpretwitch-{version}-windows-x64-setup.exe'
-        shutil.copy2(installer, output / installer.name)
+            archive.write(ROOT / 'chat_plugin/scripts/mac-install-common.sh', 'mac-install-common.sh')
+    installer = package / (name + ('.pkg' if platform == 'macos-arm64' else '-setup.exe'))
+    shutil.copy2(installer, output / installer.name)
     evidence['artifacts'] = {p.name: {'sha256': sha256(p), 'bytes': p.stat().st_size}
                              for p in sorted(output.iterdir())}
     (output / (name + '-build.json')).write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')

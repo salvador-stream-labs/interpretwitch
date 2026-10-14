@@ -34,15 +34,32 @@ int main(int argc, char **argv) {
                            {"threads", *profile == ModelProfile::Heavy ? 1 : 2},
                            {"load_ms", double(timer.elapsed())}};
         QJsonArray rows;
-        for (const auto &text : QStringList{
-                 "Hello everyone!", "On the left side of the road", "I the left side of the road",
-                 "move to the left", "Please move to the left and wait for the tank.",
-                 "Do not pull the boss yet.", "We have 15 seconds before the next phase.",
-                 "Thank you @alice Kappa", "Привет, как дела?", "Bonjour tout le monde",
-                 "hola amigos como estan", "KEKW", "Visit https://example.com after the stream",
-                 "hello", "lol", "Bitte wartet auf den Tank, bevor ihr den Boss angreift.",
-                 "Почекайте, будь ласка, поки всі гравці будуть готові.",
-                 "请等所有玩家准备好后再开始战斗。", "شكرا جزيلا لكم على مشاهدة البث"}) {
+        for (const auto &text :
+             QStringList{"Hello everyone!",
+                         "On the left side of the road",
+                         "I the left side of the road",
+                         "move to the left",
+                         "Please move to the left and wait for the tank.",
+                         "Do not pull the boss yet.",
+                         "We have 15 seconds before the next phase.",
+                         "Thank you @alice Kappa",
+                         "Привет, как дела?",
+                         "Bonjour tout le monde",
+                         "hola amigos como estan",
+                         "KEKW",
+                         "Visit https://example.com after the stream",
+                         "hello",
+                         "Yes",
+                         "YES!",
+                         "No",
+                         "Bye",
+                         "Thanks @alice Kappa",
+                         "Yes but wait",
+                         "lol",
+                         "Bitte wartet auf den Tank, bevor ihr den Boss angreift.",
+                         "Почекайте, будь ласка, поки всі гравці будуть готові.",
+                         "请等所有玩家准备好后再开始战斗。",
+                         "شكرا جزيلا لكم على مشاهدة البث"}) {
             Message m;
             m.original = text;
             m.parts = protect_text(text);
@@ -54,6 +71,11 @@ int main(int argc, char **argv) {
             auto value = translator.translate(m, [] {
                 return false;
             });
+            const auto cancelled = translator.translate(m, [] {
+                return true;
+            });
+            if (cancelled.translated || cancelled.text != m.original)
+                throw std::runtime_error("Cancelled request returned a cached translation");
             QJsonObject row{{"input", text},
                             {"output", value.text},
                             {"translated", value.translated},
@@ -75,6 +97,14 @@ int main(int argc, char **argv) {
                  text == "move to the left") &&
                 value.translated != (target != "en"))
                 throw std::runtime_error("Short English chat regression");
+            if (target == "ru" &&
+                ((text == "Yes" && value.text != "Да") || (text == "YES!" && value.text != "Да!") ||
+                 (text == "No" && value.text != "Нет") || (text == "Bye" && value.text != "Пока") ||
+                 (text == "Thanks @alice Kappa" && value.text != "Спасибо @alice Kappa")))
+                throw std::runtime_error("Common reply translation regression");
+            if ((text == "Yes" || text == "YES!" || text == "No" || text == "Bye") &&
+                value.translated != (target != "en"))
+                throw std::runtime_error("Common reply routing regression");
             if (*profile == ModelProfile::Heavy &&
                 ((text.startsWith("Bonjour") && target != "fr") ||
                  (text.startsWith("Bitte") && target != "de")) &&

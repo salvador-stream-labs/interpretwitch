@@ -3,7 +3,6 @@
 
 Run inside a Visual Studio x64 developer environment (dumpbin checks).
 """
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,7 +10,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from package_source import write_source
+from package_source import sha256, write_source
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / 'chat_plugin'
@@ -66,9 +65,9 @@ def main():
     version = re.search(r'project\(awl-chat VERSION (\S+)', (PROJECT / 'CMakeLists.txt').read_text()).group(1)
     evidence = {'product': 'Interpretwitch', 'publisher': 'Salvador Stream Labs', 'version': version,
                 'bytes': sum(p.stat().st_size for p in files),
-                'module_sha256': hashlib.sha256(module.read_bytes()).hexdigest(),
-                'helper_sha256': hashlib.sha256(helper.read_bytes()).hexdigest(),
-                'source_sha256': hashlib.sha256((data / 'source.zip').read_bytes()).hexdigest(),
+                'module_sha256': sha256(module),
+                'helper_sha256': sha256(helper),
+                'source_sha256': sha256(data / 'source.zip'),
                 'inference_process': 'awl-chat-worker.exe',
                 'models_bundled': False, 'signature': 'unsigned development build', 'source': source}
     (stage_parent / 'package.json').write_text(json.dumps(evidence, indent=2) + '\n')

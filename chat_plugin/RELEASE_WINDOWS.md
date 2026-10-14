@@ -186,8 +186,14 @@ Close these before any public Windows download, including a pre-release.
   Treat this as open until blocker 4 passes.
 - **One-word translation quality.** Both models translate some lone words poorly
   without context. Light renders "Yes" as «Выполнено» ("Done"); Heavy renders "Bye"
-  as «Поздравление» ("Congratulations"). A small per-target override table for the
-  handful of affected replies is proposed; it is not implemented.
+  as «Поздравление» ("Congratulations"). A small whole-reply correction table is
+  now implemented in `src/short_replies.cpp` for English yes/no, greetings,
+  farewells, thanks, okay, sorry and please, targeting Russian, French, German,
+  Spanish and Ukrainian in either model profile. It preserves punctuation and
+  protected mentions/emotes and does not replace words inside longer sentences.
+  Other words/targets still use the model and conservative language detection;
+  this is not a general solution to ambiguous one-word messages. The correction
+  is newer than the published `v0.8.2-rc.1` assets and still needs a Windows build.
 - **Timing-sensitive isolation check.** The `chat-process-isolation` "stalled model
   loading" case uses a 150 ms deadline that includes starting the helper process. It
   failed once while the machine was busy compiling, then passed 6/6 when run alone.

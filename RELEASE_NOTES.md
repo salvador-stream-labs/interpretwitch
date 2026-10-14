@@ -1,4 +1,4 @@
-# Interpretwitch 0.8.2 preview
+# Interpretwitch 0.8.3 preview
 
 Local Twitch chat translation in OBS's own Chat dock, by Salvador Stream Labs.
 No separate Twitch login, cloud translation or bundled models.
@@ -7,10 +7,13 @@ No separate Twitch login, cloud translation or bundled models.
 - Translation first, optional original text, subtle detected-language pill and background.
 - Windows settings can download verified NVIDIA GPU support when needed; CPU remains the default.
 - Five-message catch-up, passive health status and an isolated translation helper.
+- Graphical Mac `.pkg` installer, with English/Russian instructions, per-user installation and upgrade backups.
+- Corrected common English replies such as Yes/No/Bye into the five Light target languages, in both model profiles.
+- Safer browser cleanup after layout errors, isolated GPU download staging, and stricter message validation.
 
 ## Downloads
 
-Apple Silicon Mac: use the `macos-arm64.zip` file (macOS 14+).
+Apple Silicon Mac: open `macos-arm64.pkg` (macOS 14+), or use the optional ZIP.
 Windows 10/11 x64: use `windows-x64-setup.exe`, or the ZIP for manual installation.
 **OBS 32.2.2 is required. Intel Macs and Windows on Arm are not supported.**
 
@@ -28,10 +31,10 @@ See [installation and verification instructions](https://github.com/salvador-str
 
 - Review the successful Mac and Windows CI runs, including browser and installer tests.
 - Complete Windows runtime redistribution review; included notices are evidence, not a legal clearance.
-- Test a browser-downloaded Mac ZIP through Gatekeeper and installation.
+- Test a browser-downloaded Mac PKG and ZIP through Gatekeeper and installation.
 - Run at least one hour of live Windows OBS chat with CPU/GPU, reconnection and restart.
 
-The Windows installer is unsigned. The Mac bundle is ad-hoc signed and not notarized.
+The Windows and Mac installers are unsigned. The Mac bundle is ad-hoc signed and not notarized.
 These are preview packages, not a claim of stable certification, independent audit
 or a guarantee against crashes. GPU hardware and longer live-stream testing are
 outside the hosted CI checks. Keep this release as a draft until the checks above

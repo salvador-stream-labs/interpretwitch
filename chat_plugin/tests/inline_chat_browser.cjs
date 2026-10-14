@@ -491,6 +491,19 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await translated('unaffected');
         await appearance(true, true, false);
 
+        // Failure in scroll measurement itself must not block teardown.
+        await page.evaluate(() => {
+            const measure = window.getComputedStyle;
+            window.getComputedStyle = () => { throw Error('Simulated measurement failure'); };
+            try { window.__awlInterpretwitch.stop(true); }
+            finally { window.getComputedStyle = measure; }
+        });
+        assert.equal(await page.locator('[data-awl-source], [data-awl-hide-original], [data-awl-style]').count(), 0);
+        assert.equal(await page.locator('#unaffected .text-fragment').isVisible(), true, 'Measurement failure left originals hidden');
+        await page.evaluate(script);
+        await translated('unaffected');
+        await appearance(true, true, false);
+
         // Losing the socket must immediately revoke health and restore originals.
         await page.evaluate(() => window.testSocket.close());
         await page.waitForFunction(() => document.querySelector('[data-awl-health]')?.textContent.includes('Unavailable'));

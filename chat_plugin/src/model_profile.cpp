@@ -94,18 +94,23 @@ QString translation_language(const QString &text, const QString &detected, float
     if (profile == ModelProfile::Light && cyrillic.match(text).hasMatch())
         return {};
     // Common English chat replies the detector scores poorly or not at all on
-    // their own (it has no features for words such as "nice" or "same"). Each
-    // was checked for a sensible Light translation; senses that go wrong in chat
-    // ("right" → direction, "agreed" → approved) are left out.
-    static const QSet<QString> replies{
-        "hello",   "hi",      "hey",       "thanks",     "thank you",       "welcome", "please",
-        "sorry",   "bye",     "yes",       "yeah",       "yep",             "no",      "nope",
-        "ok",      "okay",    "sure",      "maybe",      "this",            "that",    "these",
-        "what",    "why",     "how",       "who",        "when",            "where",   "here",
-        "there",   "now",     "later",     "soon",       "again",           "finally", "wait",
-        "stop",    "really",  "same",      "true",       "exactly",         "nice",    "wow",
-        "cool",    "great",   "awesome",   "amazing",    "perfect",         "good",    "bad",
-        "wrong",   "congrats", "congratulations", "definitely", "absolutely", "seriously"};
+    // their own (it has no features for words such as "nice" or "same"). This
+    // handles routing only; short_replies.cpp corrects a small set of model
+    // failures. Ambiguous senses ("right", "agreed") are left out.
+    static const QSet<QString> replies{"hello",      "hi",         "hey",      "thanks",
+                                       "thank you",  "welcome",    "please",   "sorry",
+                                       "bye",        "yes",        "yeah",     "yep",
+                                       "no",         "nope",       "ok",       "okay",
+                                       "sure",       "maybe",      "this",     "that",
+                                       "these",      "what",       "why",      "how",
+                                       "who",        "when",       "where",    "here",
+                                       "there",      "now",        "later",    "soon",
+                                       "again",      "finally",    "wait",     "stop",
+                                       "really",     "same",       "true",     "exactly",
+                                       "nice",       "wow",        "cool",     "great",
+                                       "awesome",    "amazing",    "perfect",  "good",
+                                       "bad",        "wrong",      "congrats", "congratulations",
+                                       "definitely", "absolutely", "seriously"};
     static const QRegularExpression trailing("[.!?,…]+$");
     if (replies.contains(text.toLower().remove(trailing)))
         return target == "en" ? QString{} : QString("en");
@@ -120,8 +125,8 @@ QString translation_language(const QString &text, const QString &detected, float
         (profile == ModelProfile::Light && detected != "en"))
         return {};
     // A single Latin word is often a username, emote, slang or an ambiguous
-    // abbreviation (sheesh, Kappa and gg score 55-78% English). Translate one only
-    // when the detector is at least 90% sure it is English, e.g. "Definitely".
+    // abbreviation (sheesh, Kappa and gg score .55-.78 for English). Translate one
+    // only when the English score is at least .90, e.g. "Definitely".
     // Do not require spaces in scripts such as Chinese, Japanese or Thai.
     static const QRegularExpression latin("[A-Za-z\\x{00C0}-\\x{024F}]");
     if (!text.contains(' ') && (profile == ModelProfile::Light || latin.match(text).hasMatch()) &&

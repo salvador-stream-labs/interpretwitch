@@ -1,0 +1,10 @@
+Interpretwitch by Salvador Stream Labs
+
+Private, local translation in OBS's Twitch Chat dock.
+
+Requires an Apple Silicon Mac, macOS 14 or later, and OBS 32.2.2 in Applications.
+Quit OBS completely with Command-Q before continuing.
+
+Installs for your Mac account only. No administrator password is needed.
+An existing plugin is backed up. Your models and settings are kept.
+Choose and download a translation model from Interpretwitch's settings after installation.

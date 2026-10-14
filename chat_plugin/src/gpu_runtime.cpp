@@ -11,6 +11,7 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QStorageInfo>
+#include <QTemporaryDir>
 #include <QUrl>
 #include <algorithm>
 #include <cmath>
@@ -22,8 +23,8 @@
 
 namespace awl::chat {
 namespace {
-constexpr const char *codes[] = {"", "no-driver", "no-device", "old-driver",
-                                 "libraries", "memory", "unknown"};
+constexpr const char *codes[] = {"",          "no-driver", "no-device", "old-driver",
+                                 "libraries", "memory",    "unknown"};
 constexpr qint64 archive_limit = 1LL << 30, file_limit = 1LL << 30, total_limit = 3LL << 29;
 
 struct PackFile {
@@ -132,7 +133,8 @@ quint64 u64(const char *p) {
     throw std::runtime_error("GPU support download failed verification. Try again.");
 }
 QByteArray read_at(QFile &file, qint64 offset, qint64 length) {
-    if (offset < 0 || length < 0 || offset + length > file.size() || !file.seek(offset))
+    if (offset < 0 || length < 0 || offset > file.size() || length > file.size() - offset ||
+        !file.seek(offset))
         corrupt();
     auto data = file.read(length);
     if (data.size() != length)
@@ -208,8 +210,9 @@ QHash<QString, ZipEntry> read_directory(QFile &zip) {
 void extract(QFile &zip, const ZipEntry &entry, const PackFile &file, const QString &output,
              const std::atomic<bool> &cancel, const std::function<void(qint64)> &progress) {
     // Encrypted or unusual entries are rejected; sizes must match the catalogue.
-    if ((entry.flags & 0x1) || (entry.method != 0 && entry.method != 8) || entry.size != file.size ||
-        (entry.method == 0 && entry.compressed != entry.size) || entry.compressed > archive_limit)
+    if ((entry.flags & 0x1) || (entry.method != 0 && entry.method != 8) ||
+        entry.size != file.size || (entry.method == 0 && entry.compressed != entry.size) ||
+        entry.compressed > archive_limit)
         corrupt();
     const auto local = read_at(zip, entry.offset, 30);
     if (u32(local.constData()) != 0x04034b50)
@@ -247,7 +250,8 @@ void extract(QFile &zip, const ZipEntry &entry, const PackFile &file, const QStr
     while (remaining > 0 && status != Z_STREAM_END) {
         if (cancel)
             throw std::runtime_error("Download cancelled.");
-        const auto chunk = zip.read(input.data(), std::min<qint64>(remaining, qint64(input.size())));
+        const auto chunk =
+            zip.read(input.data(), std::min<qint64>(remaining, qint64(input.size())));
         if (chunk <= 0)
             corrupt();
         remaining -= chunk;
@@ -266,8 +270,8 @@ void extract(QFile &zip, const ZipEntry &entry, const PackFile &file, const QStr
             emit_data(buffer.data(), qint64(buffer.size() - stream.avail_out));
         }
     }
-    if ((entry.method == 8 && status != Z_STREAM_END) || written != file.size ||
-        crc != entry.crc || digest.result().toHex() != file.sha256.toLatin1())
+    if ((entry.method == 8 && status != Z_STREAM_END) || written != file.size || crc != entry.crc ||
+        digest.result().toHex() != file.sha256.toLatin1())
         corrupt();
     if (!out.flush())
         throw std::runtime_error("GPU support could not be installed. Try again.");
@@ -276,17 +280,6 @@ void extract(QFile &zip, const ZipEntry &entry, const PackFile &file, const QStr
 
 QString gpu_issue_code(GpuIssue issue) {
     return codes[int(issue)];
-}
-GpuIssue gpu_issue_from_code(const QString &code, bool *valid) {
-    for (int i = 0; i <= int(GpuIssue::Unknown); ++i)
-        if (code == codes[i]) {
-            if (valid)
-                *valid = true;
-            return GpuIssue(i);
-        }
-    if (valid)
-        *valid = false;
-    return GpuIssue::Unknown;
 }
 GpuIssue classify_gpu_error(const std::string &message) {
     const auto text = QString::fromStdString(message).toLower();
@@ -398,15 +391,12 @@ QString install_gpu_pack(const QString &manifest, const QString &root,
     if (storage.isValid() && storage.bytesAvailable() < pack.size + extracted + (64LL << 20))
         throw std::runtime_error(
             "Not enough free disk space for GPU support (about 1.4 GB needed).");
-    const auto archive_path = directory + ".download", staging = directory + ".partial";
-    struct Remove {
-        QString archive, staging;
-        ~Remove() {
-            QFile::remove(archive);
-            QDir(staging).removeRecursively();
-        }
-    } remove{archive_path, staging};
-    QDir(staging).removeRecursively();
+    // Each attempt owns its temporary files. Never truncate a predictable path
+    // or remove another helper's staging folder; Qt cleans up on every return.
+    QTemporaryDir work(QDir(root).filePath(".gpu-install-XXXXXX"));
+    if (!work.isValid())
+        throw std::runtime_error("GPU support could not be installed. Try again.");
+    const auto archive_path = work.filePath("archive.zip"), staging = work.filePath("files");
     if (!QDir().mkpath(staging))
         throw std::runtime_error("GPU support could not be installed. Try again.");
     {
@@ -465,15 +455,16 @@ QString install_gpu_pack(const QString &manifest, const QString &root,
     QFile marker(QDir(staging).filePath("pack.json"));
     QJsonArray files;
     for (const auto &file : pack.files)
-        files.append(QJsonObject{{"filename", file.filename},
-                                 {"size", double(file.size)},
-                                 {"sha256", file.sha256}});
+        files.append(QJsonObject{
+            {"filename", file.filename}, {"size", double(file.size)}, {"sha256", file.sha256}});
     if (!marker.open(QIODevice::WriteOnly) ||
         marker.write(QJsonDocument(QJsonObject{{"id", pack.id}, {"files", files}}).toJson()) < 0 ||
         !marker.flush())
         throw std::runtime_error("GPU support could not be installed. Try again.");
     marker.close();
     // Publish atomically: an interrupted install never looks complete.
+    if (QFileInfo(directory).isSymLink())
+        throw std::runtime_error("GPU support could not be installed. Try again.");
     QDir(directory).removeRecursively();
     if (!QDir().rename(staging, directory) || !complete(pack, directory))
         throw std::runtime_error("GPU support could not be installed. Try again.");
